@@ -1,0 +1,10 @@
+package com.aegis.task;
+
+public enum TaskType {
+    FETCH_DEPLOYMENT_LOGS,
+    ANALYZE_FAILURE,
+    CORRELATE_METRICS,
+    GENERATE_SUMMARY,
+    SUGGEST_REMEDIATION,
+    SEND_NOTIFICATION
+}
