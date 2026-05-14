@@ -1,43 +1,50 @@
 # Aegis Core Architecture
 
-## Target System
+## Direction
+
+Aegis Core is a Kubernetes intelligence platform, not a generic AI chatbot and not a Kafka-first telemetry system.
+
+The first version should prove one valuable loop:
 
 ```text
-Frontend (React)
-        |
-API Gateway (Spring Boot)
-        |
-Workflow Engine
-        |
-Kafka Event Bus
-        |
-Workers / Agents
- |-- AI Worker
- |-- Log Worker
- |-- Metrics Worker
- |-- K8s Worker
- `-- Notification Worker
-
-Storage: PostgreSQL, Redis, OpenSearch
-Observability: Prometheus, Grafana, OpenTelemetry
+Kubernetes signals -> Java incident engine -> Python LangGraph RCA -> remediation plan -> dashboard
 ```
 
-## Phase Plan
+## Phase 1
 
-1. Foundation: workflows, tasks, execution logs, PostgreSQL, REST API.
-2. Event-driven architecture: Kafka topics, producers, consumers, worker lifecycle events.
-3. AI integration: Ollama-backed incident summaries and remediation suggestions.
-4. Reliability: retries, recovery, scheduling, failure policies.
-5. Observability: metrics, traces, dashboards, worker health.
-6. Kubernetes: deploy backend, workers, Kafka, and PostgreSQL to Kind.
+- Java Spring Boot backend owns platform APIs, Kubernetes access, incident intake, and remediation policy.
+- Python FastAPI service owns LangGraph reasoning and local AI integration.
+- React dashboard shows cluster and investigation state.
+- Kafka is intentionally excluded from Phase 1.
 
-## First End-to-End Feature
+## Phase 2
 
-The first full feature should stay narrow:
+- Add Prometheus metrics collection.
+- Add OpenTelemetry traces and service maps.
+- Add Fluent Bit log collection.
+- Add persistence for incidents and investigation history.
 
-1. Create workflow.
-2. Persist workflow and planned tasks.
-3. Publish workflow-created event.
-4. Worker processes first task.
-5. Store result.
-6. Display workflow state in the UI.
+## Phase 3
+
+- Add Kafka only when multi-cluster ingestion or high-volume stream processing is real.
+- Add Kubernetes CRDs for investigation workflows.
+- Add approval-gated remediation actions such as rollback, restart, and resource patch suggestions.
+
+## Why Polyglot
+
+Java is the platform layer:
+
+- Kubernetes Java client
+- WebFlux APIs
+- reliability policies
+- observability integration
+- strong backend/platform signal
+
+Python is the AI layer:
+
+- LangGraph
+- local LLM/Ollama experimentation
+- RCA graph iteration
+- remediation planning
+
+This separation keeps Aegis credible as platform engineering while still using the best AI tooling.

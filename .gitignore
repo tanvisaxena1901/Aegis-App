@@ -43,5 +43,10 @@ bin/
 node_modules/
 dist/
 
+### Python ###
+.venv/
+__pycache__/
+*.pyc
+
 ### Mac OS ###
 .DS_Store

@@ -1,10 +1,10 @@
 # Kubernetes
 
-Kubernetes manifests will be added after the local workflow engine and Kafka worker loop exist.
+Phase 1 uses the Kubernetes API from the Java backend. Full in-cluster manifests come after the local MVP works.
 
-Planned local target:
+Planned resources:
 
-```bash
-kind create cluster --name aegis
-kubectl apply -f aegis-core/k8s
-```
+- backend deployment and service
+- ai-service deployment and service
+- service account with read-only cluster permissions
+- optional remediation role with approval-gated permissions

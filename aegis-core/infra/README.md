@@ -1,13 +1,23 @@
 # Local Infrastructure
 
-Phase 1 only requires PostgreSQL.
+Phase 1 has no mandatory database and no Kafka.
+
+Useful local services:
+
+- Kind for a local Kubernetes cluster.
+- Ollama for local model execution.
+- Prometheus and Fluent Bit in Phase 2.
+
+Create a local cluster:
 
 ```bash
-docker compose -f aegis-core/infra/docker-compose.yml up -d postgres
+kind create cluster --name aegis
+kubectl config use-context kind-aegis
 ```
 
-Kafka and Redis are listed behind the `phase-2` profile so the future event system has a clear home without forcing extra services during the foundation phase.
+Run Ollama separately:
 
 ```bash
-docker compose -f aegis-core/infra/docker-compose.yml --profile phase-2 up -d
+ollama pull qwen2.5
+ollama run qwen2.5
 ```

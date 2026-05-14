@@ -1,19 +1,13 @@
 spring:
   application:
     name: aegis-core-backend
-  datasource:
-    url: ${AEGIS_DB_URL:jdbc:postgresql://localhost:5432/aegis}
-    username: ${AEGIS_DB_USER:aegis}
-    password: ${AEGIS_DB_PASSWORD:aegis}
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    open-in-view: false
-  flyway:
-    enabled: true
 
 server:
   port: ${PORT:8080}
+
+aegis:
+  ai-service:
+    base-url: ${AEGIS_AI_SERVICE_URL:http://localhost:8090}
 
 management:
   endpoints:

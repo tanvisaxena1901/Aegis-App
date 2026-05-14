@@ -1,28 +1,13 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, AlertTriangle, GitBranch, ListChecks, RefreshCcw } from 'lucide-react';
+import { Activity, Bot, GitBranch, ShieldAlert } from 'lucide-react';
 import './styles.css';
 
-type Workflow = {
-  id: string;
-  status: string;
-  currentStep: string;
-  retryCount: number;
-  request: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-const sampleWorkflows: Workflow[] = [
-  {
-    id: 'phase-1-preview',
-    status: 'CREATED',
-    currentStep: 'workflow.created',
-    retryCount: 0,
-    request: 'Investigate failed deployment and notify team.',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
+const signals = [
+  'CrashLoopBackOff after rollout',
+  'Back-off restarting failed container',
+  'OutOfMemoryError in previous logs',
+  'Memory working set near configured limit',
 ];
 
 function App() {
@@ -31,52 +16,49 @@ function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Aegis Core</p>
-          <h1>Workflow Control Plane</h1>
+          <h1>Kubernetes Investigation Console</h1>
         </div>
-        <button className="icon-button" aria-label="Refresh workflows" title="Refresh workflows">
-          <RefreshCcw size={18} />
+        <button className="icon-button" aria-label="Run investigation" title="Run investigation">
+          <Bot size={18} />
         </button>
       </header>
 
-      <section className="metrics-grid" aria-label="Workflow metrics">
-        <Metric icon={<GitBranch size={18} />} label="Workflows" value="1" />
-        <Metric icon={<ListChecks size={18} />} label="Tasks Planned" value="6" />
-        <Metric icon={<AlertTriangle size={18} />} label="Failures" value="0" />
-        <Metric icon={<Activity size={18} />} label="Workers" value="Phase 2" />
+      <section className="metrics-grid">
+        <Metric icon={<GitBranch size={18} />} label="Clusters" value="1" />
+        <Metric icon={<ShieldAlert size={18} />} label="Open Incidents" value="1" />
+        <Metric icon={<Activity size={18} />} label="K8s Watcher" value="Phase 1" />
+        <Metric icon={<Bot size={18} />} label="AI Service" value="LangGraph" />
       </section>
 
       <section className="content-grid">
-        <div className="panel">
+        <article className="panel incident-panel">
           <div className="panel-header">
-            <h2>Workflows</h2>
+            <h2>Active Investigation</h2>
+            <span className="severity">HIGH</span>
           </div>
-          <div className="workflow-list">
-            {sampleWorkflows.map((workflow) => (
-              <article className="workflow-row" key={workflow.id}>
-                <div>
-                  <span className="status">{workflow.status}</span>
-                  <h3>{workflow.request}</h3>
-                  <p>{workflow.currentStep}</p>
-                </div>
-                <span className="retry-count">{workflow.retryCount} retries</span>
-              </article>
-            ))}
+          <div className="incident-body">
+            <h3>checkout-api is restarting after deployment</h3>
+            <p>
+              Probable cause: the workload likely exceeded its memory limit and entered a
+              restart loop.
+            </p>
+            <div className="actions">
+              <button>Inspect Events</button>
+              <button>Plan Remediation</button>
+            </div>
           </div>
-        </div>
+        </article>
 
-        <div className="panel">
+        <article className="panel">
           <div className="panel-header">
-            <h2>Phase 1 DAG</h2>
+            <h2>Correlated Signals</h2>
           </div>
-          <ol className="dag-list">
-            <li>Fetch deployment logs</li>
-            <li>Analyze failure</li>
-            <li>Correlate metrics</li>
-            <li>Generate summary</li>
-            <li>Suggest remediation</li>
-            <li>Send notification</li>
+          <ol className="signal-list">
+            {signals.map((signal) => (
+              <li key={signal}>{signal}</li>
+            ))}
           </ol>
-        </div>
+        </article>
       </section>
     </main>
   );

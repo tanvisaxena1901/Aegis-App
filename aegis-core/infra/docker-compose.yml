@@ -1,36 +1,19 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: aegis-postgres
+  ai-service:
+    build:
+      context: ../ai-service
+    container_name: aegis-ai-service
+    ports:
+      - "8090:8090"
     environment:
-      POSTGRES_DB: aegis
-      POSTGRES_USER: aegis
-      POSTGRES_PASSWORD: aegis
-    ports:
-      - "5432:5432"
-    volumes:
-      - aegis-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aegis -d aegis"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: aegis-redis
-    ports:
-      - "6379:6379"
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
     profiles:
-      - phase-2
+      - ai
 
-  kafka:
-    image: apache/kafka:3.9.0
-    container_name: aegis-kafka
+  prometheus:
+    image: prom/prometheus:v2.53.2
+    container_name: aegis-prometheus
     ports:
-      - "9092:9092"
+      - "9090:9090"
     profiles:
-      - phase-2
-
-volumes:
-  aegis-postgres-data:
+      - observability

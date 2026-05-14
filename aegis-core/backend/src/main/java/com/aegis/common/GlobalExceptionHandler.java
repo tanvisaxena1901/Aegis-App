@@ -1,6 +1,5 @@
 package com.aegis.common;
 
-import com.aegis.workflow.WorkflowNotFoundException;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,12 +10,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(WorkflowNotFoundException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    ApiError handleNotFound(RuntimeException exception) {
-        return new ApiError(exception.getMessage(), Instant.now());
-    }
-
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     ApiError handleValidation(MethodArgumentNotValidException exception) {
@@ -25,5 +18,11 @@ public class GlobalExceptionHandler {
                 .map(error -> error.getField() + " " + error.getDefaultMessage())
                 .orElse("Invalid request");
         return new ApiError(message, Instant.now());
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    ApiError handleRuntime(RuntimeException exception) {
+        return new ApiError(exception.getMessage(), Instant.now());
     }
 }

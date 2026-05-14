@@ -1,5 +1,5 @@
 # Docker
 
-This directory is reserved for application Dockerfiles and image build assets.
+The Python AI service has a Dockerfile because it is the first independently deployable service.
 
-Phase 1 uses `aegis-core/infra/docker-compose.yml` for PostgreSQL.
+The Java backend image will be added after the API and Kubernetes watcher stabilize.

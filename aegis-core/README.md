@@ -1,53 +1,80 @@
 # Aegis Core
 
-Aegis Core is an AI-native orchestration engine for workflow execution, task coordination, event processing, reliability actions, and agent-driven operations.
+Aegis Core is an AI-native Kubernetes investigation and remediation workflow platform.
 
-The project intentionally starts small. Phase 1 creates one Spring Boot backend that can create workflows, plan retryable tasks, persist state, and expose basic APIs. Kafka, independent workers, Ollama AI actions, observability, and Kubernetes deployment are staged for later phases.
+The MVP is intentionally not a Kafka project. Phase 1 focuses on Kubernetes intelligence: watch cluster signals, collect incidents, ask an isolated Python LangGraph service for root-cause reasoning, and expose the result through a Java platform backend and a simple dashboard.
+
+## Architecture
+
+```text
+Kubernetes Cluster
+        |
+Java Platform Backend
+ |-- Kubernetes Watcher
+ |-- Incident Engine
+ |-- Remediation API
+ `-- Observability Hooks
+        |
+Python AI Service
+ |-- LangGraph RCA Graph
+ |-- Remediation Planner
+ `-- Ollama / local LLM interface
+        |
+React Dashboard
+```
 
 ## Structure
 
 ```text
 aegis-core/
-  backend/   Spring Boot API and workflow foundation
-  frontend/  Simple React dashboard shell
-  infra/     Local infrastructure notes and compose entrypoints
-  docker/    Docker assets
-  k8s/       Kubernetes manifests
-  docs/      Architecture and phase docs
-  scripts/   Local helper scripts
+  backend/     Java 21 Spring Boot platform backend
+  ai-service/  Python FastAPI + LangGraph reasoning service
+  frontend/    React dashboard shell
+  infra/       Local runtime notes and compose files
+  k8s/         Kubernetes manifests for later deployment
+  docs/        Architecture and phase plan
+  scripts/     Local developer scripts
 ```
-
-## Phase 1 API
-
-- `POST /api/workflows` creates a workflow and planned tasks.
-- `GET /api/workflows` lists workflows.
-- `GET /api/workflows/{workflowId}` gets one workflow.
-- `GET /api/workflows/{workflowId}/tasks` lists workflow tasks.
 
 ## Run Locally
 
-In IntelliJ, set the Gradle JVM to the installed JDK 21:
-
-```text
-/Users/tanvisaxena/Library/Java/JavaVirtualMachines/ms-21.0.11/Contents/Home
-```
-
-Start PostgreSQL:
+Backend:
 
 ```bash
-docker compose -f aegis-core/infra/docker-compose.yml up -d postgres
+cd /Users/tanvisaxena/IdeaProjects/Aegis
+JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew :aegis-core:backend:bootRun
 ```
 
-Run the backend:
+Python AI service:
 
 ```bash
-./gradlew :aegis-core:backend:bootRun
+cd /Users/tanvisaxena/IdeaProjects/Aegis/aegis-core/ai-service
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8090
 ```
 
-Create a workflow:
+Frontend:
 
 ```bash
-curl -X POST http://localhost:8080/api/workflows \
+cd /Users/tanvisaxena/IdeaProjects/Aegis/aegis-core/frontend
+npm install
+npm run dev
+```
+
+Try the investigation API:
+
+```bash
+curl -X POST http://localhost:8080/api/incidents/investigate \
   -H 'Content-Type: application/json' \
-  -d '{"request":"Investigate failed deployment and notify team."}'
+  -d '{
+    "namespace":"default",
+    "resourceKind":"Pod",
+    "resourceName":"checkout-api-7d9f",
+    "symptom":"CrashLoopBackOff after deployment",
+    "events":["Back-off restarting failed container"],
+    "logs":["OutOfMemoryError: Java heap space"],
+    "metrics":["container_memory_working_set_bytes near limit"]
+  }'
 ```

@@ -1,6 +1,7 @@
 package com.aegis;
 
 import org.junit.jupiter.api.Test;
+
 class AegisCoreApplicationTests {
 
     @Test
