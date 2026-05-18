@@ -1,0 +1,14 @@
+.git
+.gradle
+**/build
+!aegis-core/backend/build
+!aegis-core/backend/build/libs
+!aegis-core/backend/build/libs/*.jar
+**/dist
+!aegis-core/frontend/dist
+!aegis-core/frontend/dist/**
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.DS_Store

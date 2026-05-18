@@ -32,3 +32,22 @@ class IncidentInvestigationResponse(BaseModel):
     recommendedActions: List[str]
     humanApprovalRequired: bool
     generatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class GeneralChatRequest(BaseModel):
+    message: str
+    history: List[ChatMessage] = Field(default_factory=list)
+    evidence: List[str] = Field(default_factory=list)
+    metrics: List[str] = Field(default_factory=list)
+
+
+class GeneralChatResponse(BaseModel):
+    answer: str
+    model: str
+    ollamaAvailable: bool
+    generatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

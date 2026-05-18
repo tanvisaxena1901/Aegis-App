@@ -9,6 +9,9 @@ import org.springframework.stereotype.Component;
 public class KubernetesClientProvider {
 
     public ApiClient defaultClient() throws IOException {
+        if (System.getenv("KUBERNETES_SERVICE_HOST") != null) {
+            return Config.fromCluster();
+        }
         return Config.defaultClient();
     }
 }

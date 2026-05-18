@@ -20,6 +20,15 @@ public class AiReasoningClient {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(IncidentInvestigationResponse.class)
-                .timeout(Duration.ofSeconds(20));
+                .timeout(Duration.ofSeconds(90));
+    }
+
+    public Mono<AiChatResponse> chat(AiChatRequest request) {
+        return aiWebClient.post()
+                .uri("/v1/chat")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(AiChatResponse.class)
+                .timeout(Duration.ofSeconds(90));
     }
 }

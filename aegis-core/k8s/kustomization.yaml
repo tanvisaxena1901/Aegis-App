@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - config.yaml
+  - aegis-readonly-rbac.yaml
+  - ai-service.yaml
+  - backend.yaml
+  - frontend.yaml
+  - ingress.yaml
+
+images:
+  - name: aegis-ai-service
+    newName: aegis-ai-service
+    newTag: 0.2.0
+  - name: aegis-backend
+    newName: aegis-backend
+    newTag: 0.2.5
+  - name: aegis-frontend
+    newName: aegis-frontend
+    newTag: 0.2.4

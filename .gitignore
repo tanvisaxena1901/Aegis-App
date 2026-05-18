@@ -48,5 +48,10 @@ dist/
 __pycache__/
 *.pyc
 
+### Local secrets ###
+.env
+.env.*
+!.env.example
+
 ### Mac OS ###
 .DS_Store

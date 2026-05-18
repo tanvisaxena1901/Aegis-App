@@ -1,13 +1,16 @@
 package com.aegis.kubernetes;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
-import io.kubernetes.client.openapi.models.CoreV1Event;
-import io.kubernetes.client.openapi.models.V1NamespaceList;
-import io.kubernetes.client.openapi.models.V1PodList;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import okhttp3.Call;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -17,6 +20,7 @@ import reactor.core.scheduler.Schedulers;
 public class KubernetesSignalService {
 
     private final KubernetesClientProvider clientProvider;
+    private final ObjectMapper objectMapper;
 
     public Mono<ClusterSnapshot> snapshot() {
         return Mono.fromCallable(this::loadSnapshot)
@@ -33,26 +37,42 @@ public class KubernetesSignalService {
     private ClusterSnapshot loadSnapshot() throws Exception {
         ApiClient client = clientProvider.defaultClient();
         CoreV1Api api = new CoreV1Api(client);
-        V1NamespaceList namespaces = api.listNamespace().execute();
-        V1PodList pods = api.listPodForAllNamespaces().execute();
+        JsonNode namespaces = executeJson(api.listNamespace().buildCall(null));
+        JsonNode pods = executeJson(api.listPodForAllNamespaces().buildCall(null));
+        JsonNode events = executeJson(api.listEventForAllNamespaces().buildCall(null));
 
-        List<String> warnings = api.listEventForAllNamespaces().execute().getItems().stream()
-                .filter(event -> "Warning".equalsIgnoreCase(event.getType()))
-                .map(this::eventSummary)
-                .limit(20)
-                .toList();
+        List<String> warnings = new ArrayList<>();
+        for (JsonNode event : events.path("items")) {
+            if ("Warning".equalsIgnoreCase(event.path("type").asText())) {
+                warnings.add(eventSummary(event));
+            }
+            if (warnings.size() >= 20) {
+                break;
+            }
+        }
 
         return new ClusterSnapshot(
                 client.getBasePath(),
-                namespaces.getItems().size(),
-                pods.getItems().size(),
+                namespaces.path("items").size(),
+                pods.path("items").size(),
                 warnings,
                 Instant.now()
         );
     }
 
-    private String eventSummary(CoreV1Event event) {
-        String namespace = event.getMetadata() == null ? "unknown" : event.getMetadata().getNamespace();
-        return namespace + "/" + event.getReason() + ": " + event.getMessage();
+    private JsonNode executeJson(Call call) throws Exception {
+        try (Response response = call.execute()) {
+            ResponseBody body = response.body();
+            String content = body == null ? "" : body.string();
+            if (!response.isSuccessful()) {
+                throw new IllegalStateException("Kubernetes API returned " + response.code() + ": " + content);
+            }
+            return objectMapper.readTree(content);
+        }
+    }
+
+    private String eventSummary(JsonNode event) {
+        String namespace = event.path("metadata").path("namespace").asText("unknown");
+        return namespace + "/" + event.path("reason").asText("") + ": " + event.path("message").asText("");
     }
 }

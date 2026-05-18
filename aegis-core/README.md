@@ -18,7 +18,7 @@ Java Platform Backend
 Python AI Service
  |-- LangGraph RCA Graph
  |-- Remediation Planner
- `-- Ollama / local LLM interface
+ `-- OpenAI / Ollama LLM interface
         |
 React Dashboard
 ```
@@ -52,8 +52,13 @@ cd /Users/tanvisaxena/IdeaProjects/Aegis/aegis-core/ai-service
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+export AI_PROVIDER=openai
+export OPENAI_API_KEY=your_api_key_here
+export OPENAI_MODEL=gpt-4.1-mini
 uvicorn app.main:app --reload --port 8090
 ```
+
+If `AI_PROVIDER=auto`, Aegis uses OpenAI when `OPENAI_API_KEY` is present and falls back to Ollama otherwise.
 
 Frontend:
 

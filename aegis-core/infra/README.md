@@ -18,6 +18,6 @@ kubectl config use-context kind-aegis
 Run Ollama separately:
 
 ```bash
-ollama pull qwen2.5
-ollama run qwen2.5
+ollama pull qwen2.5:1.5b
+ollama run qwen2.5:1.5b
 ```
