@@ -1,0 +1,85 @@
+{
+  "replayId": "sample-crashloop-001",
+  "title": "Payment API CrashLoopBackOff after deployment",
+  "clusterId": "dev-cluster",
+  "namespace": "prod-payments",
+  "timeline": [
+    {
+      "timestamp": "2026-05-20T10:01:00Z",
+      "stage": "Deployment updated",
+      "reason": "DeploymentUpdated",
+      "involvedObject": "Deployment/payment-api",
+      "message": "deployment updated"
+    },
+    {
+      "timestamp": "2026-05-20T10:02:00Z",
+      "stage": "ReplicaSet created",
+      "reason": "SuccessfulCreate",
+      "involvedObject": "ReplicaSet/payment-api-7d9",
+      "message": "new ReplicaSet created"
+    },
+    {
+      "timestamp": "2026-05-20T10:03:00Z",
+      "stage": "Pod scheduled",
+      "reason": "Scheduled",
+      "involvedObject": "Pod/payment-api-7d9-abc12",
+      "message": "pod scheduled"
+    },
+    {
+      "timestamp": "2026-05-20T10:04:00Z",
+      "stage": "Readiness probe failed",
+      "reason": "Unhealthy",
+      "involvedObject": "Pod/payment-api-7d9-abc12",
+      "message": "readiness probe failed"
+    },
+    {
+      "timestamp": "2026-05-20T10:05:00Z",
+      "stage": "Pod restarted",
+      "reason": "Killing",
+      "involvedObject": "Pod/payment-api-7d9-abc12",
+      "message": "pod restarted"
+    },
+    {
+      "timestamp": "2026-05-20T10:06:00Z",
+      "stage": "CrashLoopBackOff",
+      "reason": "BackOff",
+      "involvedObject": "Pod/payment-api-7d9-abc12",
+      "message": "Back-off restarting failed container"
+    }
+  ],
+  "deduplicatedEvents": [
+    {
+      "reason": "BackOff",
+      "type": "Warning",
+      "involvedObject": "Pod/payment-api-7d9-abc12",
+      "message": "Back-off restarting failed container",
+      "occurrences": 47,
+      "lastSeen": "2026-05-20T10:06:00Z"
+    },
+    {
+      "reason": "Unhealthy",
+      "type": "Warning",
+      "involvedObject": "Pod/payment-api-7d9-abc12",
+      "message": "Readiness probe failed",
+      "occurrences": 9,
+      "lastSeen": "2026-05-20T10:04:00Z"
+    }
+  ],
+  "restartPatterns": [
+    {
+      "podName": "payment-api-7d9-abc12",
+      "pattern": "crash loop",
+      "severity": "HIGH",
+      "restarts": 6,
+      "evidence": ["CrashLoopBackOff", "BackOff x47", "readiness probe failed"]
+    }
+  ],
+  "investigationSteps": [
+    "Build event timeline",
+    "Deduplicate noisy BackOff and Unhealthy events",
+    "Classify restart pattern as crash loop",
+    "Run CrashLoopBackOff YAML runbook",
+    "Compare deployment spec against prior snapshot",
+    "Only then ask AI for remaining unknowns"
+  ]
+}

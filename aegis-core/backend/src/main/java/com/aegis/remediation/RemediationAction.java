@@ -2,5 +2,9 @@ package com.aegis.remediation;
 
 public enum RemediationAction {
     ROLLOUT_RESTART_DEPLOYMENT,
-    DELETE_MANAGED_POD
+    RESTART_MANAGED_POD,
+    DELETE_MANAGED_POD,
+    ROLLBACK_DEPLOYMENT,
+    SCALE_DEPLOYMENT,
+    PATCH_RESOURCE_LIMITS
 }

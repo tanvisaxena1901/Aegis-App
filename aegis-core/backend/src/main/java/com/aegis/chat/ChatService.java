@@ -157,19 +157,36 @@ public class ChatService {
         );
         return aiReasoningClient.chat(aiChatRequest)
                 .onErrorReturn(new AiChatResponse(
-                        "The AI model service is unavailable. I cannot answer as a general LLM right now.",
+                        localGeneralFallback(request.message(), "AI service request failed."),
                         "unavailable",
                         false,
                         Instant.now()
                 ))
                 .map(aiResponse -> new ChatResponse(
-                        aiResponse.answer(),
+                        aiResponse.ollamaAvailable()
+                                ? aiResponse.answer()
+                                : localGeneralFallback(request.message(), aiResponse.answer()),
                         IncidentSeverity.LOW,
                         List.of(),
                         List.of(),
                         false,
                         aiResponse.generatedAt() == null ? Instant.now() : aiResponse.generatedAt()
                 ));
+    }
+
+    private String localGeneralFallback(String message, String providerDetail) {
+        String normalized = normalize(message);
+        String detail = providerDetail == null || providerDetail.isBlank()
+                ? "The model provider is offline."
+                : providerDetail;
+        if (normalized.contains("hello") || normalized.equals("hi") || normalized.equals("hey")) {
+            return "Hi. Aegis is online, but the model provider is currently unavailable. I can still answer Kubernetes dashboard questions using deterministic runbooks, events, pods, rollout state, and logs.";
+        }
+        if (normalized.contains("help") || normalized.contains("what can you do")) {
+            return "I can inspect Kubernetes health, summarize failing pods, group noisy events, explain runbook steps, and prepare approval-gated remediation plans. Free-form model chat is degraded until Ollama or OpenAI is available.";
+        }
+        return "Aegis received your message, but model-backed chat is degraded. Ask about cluster health, failing pods, warning events, rollout state, logs, runbooks, or remediation approvals and I will answer from deterministic platform data. Provider status: "
+                + detail;
     }
 
     private Mono<ChatResponse> structuredRcaFallback(
@@ -194,7 +211,7 @@ public class ChatService {
         context.add("selected_namespace=" + namespace);
         context.add("user_question=" + question);
         context.add("instruction=Answer like a normal LLM, but ground Kubernetes claims in the source signals below.");
-        context.add("instruction=For Kubernetes incidents, include direct answer, evidence, likely RCA, next checks, and safe remediation.");
+        context.add("instruction=For Kubernetes incidents, include direct answer, evidence, likely RCA, deterministic runbook checks first, and AI-assisted remediation second.");
         context.add("instruction=If the user asks how to fix something, do not repeat generic advice; map the fix path to the provided pods/events/logs/deployments.");
         evidence.stream()
                 .map(ChatEvidence::asPromptLine)
@@ -211,7 +228,7 @@ public class ChatService {
             return List.of(
                     "Confirm the exact pod or deployment from the cited evidence.",
                     "Check `describe`, previous logs, warning events, and rollout history before changing anything.",
-                    "Use AI-assisted remediation only after human approval for a specific restart or managed pod deletion."
+                    "Use AI-assisted remediation only after human approval for a specific restart, rollback, scale, or resource limit patch."
             );
         }
         return List.of(
@@ -247,7 +264,7 @@ public class ChatService {
             actions = List.of(
                     "Confirm the exact pod/deployment from the cited evidence.",
                     "Check `kubectl describe pod`, previous logs, warning events, and rollout history.",
-                    "Use AI-assisted remediation only after human approval for a specific restart or managed pod deletion."
+                    "Use AI-assisted remediation only after human approval for a specific restart, rollback, scale, or resource limit patch."
             );
         } else if (asksAboutEnvironment(question) && asksAboutFailingPods(question)) {
             answer = environmentAndPodsAnswer(environmentHealth);
@@ -933,6 +950,15 @@ public class ChatService {
                 || normalized.contains("logs")
                 || normalized.contains("rca")
                 || normalized.contains("root cause");
+        boolean operatorFollowUp = normalized.equals("check again")
+                || normalized.equals("recheck")
+                || normalized.equals("refresh")
+                || normalized.equals("refresh it")
+                || normalized.equals("try again")
+                || normalized.equals("scan again")
+                || normalized.equals("run it again")
+                || normalized.equals("check once more")
+                || normalized.equals("check now");
         boolean metricOrFailureQuestion = (normalized.contains("cpu")
                 || normalized.contains("memory")
                 || normalized.contains("usage")
@@ -952,7 +978,7 @@ public class ChatService {
                         || normalized.contains("issue")
                         || normalized.contains("issues")
                         || normalized.contains("fail"));
-        return explicitKubernetesSignal || metricOrFailureQuestion;
+        return explicitKubernetesSignal || metricOrFailureQuestion || operatorFollowUp;
     }
 
     private boolean isKubernetesConceptQuestion(String question) {
@@ -1034,6 +1060,15 @@ public class ChatService {
     private boolean isFollowUp(String question) {
         String normalized = normalize(question);
         return normalized.contains(" it")
+                || normalized.equals("check again")
+                || normalized.equals("recheck")
+                || normalized.equals("refresh")
+                || normalized.equals("refresh it")
+                || normalized.equals("try again")
+                || normalized.equals("scan again")
+                || normalized.equals("run it again")
+                || normalized.equals("check once more")
+                || normalized.equals("check now")
                 || normalized.equals("how can we fix it")
                 || normalized.equals("how to fix it")
                 || normalized.contains("fix it")

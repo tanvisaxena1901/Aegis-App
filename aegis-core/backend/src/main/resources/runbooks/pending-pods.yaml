@@ -1,0 +1,9 @@
+incidentType: PendingPods
+version: v1
+steps:
+  - read_failed_scheduling_events
+  - check_node_capacity
+  - check_taints_and_selectors
+  - check_pvc_binding
+aiAfter:
+  - explain_scheduler_constraint

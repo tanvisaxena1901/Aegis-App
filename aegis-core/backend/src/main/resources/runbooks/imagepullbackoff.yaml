@@ -1,0 +1,9 @@
+incidentType: ImagePullBackOff
+version: v1
+steps:
+  - inspect_pull_event
+  - verify_image_tag
+  - verify_image_pull_secret
+  - check_registry_reachability
+aiAfter:
+  - explain_registry_or_release_failure

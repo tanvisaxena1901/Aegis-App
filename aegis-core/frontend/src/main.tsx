@@ -173,11 +173,68 @@ type TerminalEntry = {
   error?: string;
 };
 
-type RemediationAction = 'ROLLOUT_RESTART_DEPLOYMENT' | 'DELETE_MANAGED_POD';
+type SafetyMode = 'READ_ONLY' | 'APPROVAL_REQUIRED' | 'AUTONOMOUS_DISABLED';
+
+type PlatformSafetyStatus = {
+  mode: SafetyMode;
+  canInspect: boolean;
+  canMutateWithApproval: boolean;
+  autonomousActionsEnabled: boolean;
+  approvalRequired: boolean;
+  guardrails: string[];
+  observedAt: string;
+};
+
+type WatcherResourceStatus = {
+  resource: string;
+  scope: string;
+  observedObjects: number;
+  resourceVersion: string;
+  status: string;
+  lastError: string;
+  observedAt: string;
+};
+
+type WatcherStatus = {
+  enabled: boolean;
+  watchedResources: string[];
+  resources: WatcherResourceStatus[];
+  observedAt: string;
+};
+
+type RemediationAction =
+  | 'ROLLOUT_RESTART_DEPLOYMENT'
+  | 'RESTART_MANAGED_POD'
+  | 'DELETE_MANAGED_POD'
+  | 'ROLLBACK_DEPLOYMENT'
+  | 'SCALE_DEPLOYMENT'
+  | 'PATCH_RESOURCE_LIMITS';
 
 type RemediationIntent = {
   action: RemediationAction;
   targetName: string;
+  replicas?: number;
+  containerName?: string;
+  cpuLimit?: string;
+  memoryLimit?: string;
+};
+
+type RemediationPlan = {
+  action: RemediationAction;
+  namespace: string;
+  targetName: string;
+  commandPreview: string;
+  risk: string;
+  namespaceRisk: string;
+  riskScore: number;
+  dryRunCommand: string;
+  dryRunPatch: string;
+  dryRunDiff: string;
+  approvalRequired: boolean;
+  executableInCurrentMode: boolean;
+  deterministicChecks: string[];
+  guardrails: string[];
+  generatedAt: string;
 };
 
 type RemediationResponse = {
@@ -190,10 +247,165 @@ type RemediationResponse = {
   executedAt: string;
 };
 
+type RunbookStep = {
+  order: number;
+  title: string;
+  command: string;
+  expectedSignal: string;
+};
+
+type RunbookRecommendation = {
+  action: RemediationAction;
+  targetKind: string;
+  targetName: string;
+  reason: string;
+};
+
+type RunbookResponse = {
+  incidentType: string;
+  title: string;
+  summary: string;
+  deterministicSteps: RunbookStep[];
+  suggestedActions: RunbookRecommendation[];
+  aiEscalationPrompt: string;
+  generatedAt: string;
+};
+
+type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+type NamespaceRiskProfile = {
+  namespace: string;
+  riskLevel: RiskLevel;
+  riskScoreModifier: number;
+  approvalRequiredForAllMutations: boolean;
+  policyReasons: string[];
+};
+
+type ClusterContext = {
+  clusterId: string;
+  displayName: string;
+  environment: string;
+  current: boolean;
+  status: string;
+};
+
+type IncidentTimelineItem = {
+  timestamp: string;
+  stage: string;
+  reason: string;
+  involvedObject: string;
+  message: string;
+};
+
+type DeduplicatedEvent = {
+  reason: string;
+  type: string;
+  involvedObject: string;
+  message: string;
+  occurrences: number;
+  lastSeen: string;
+};
+
+type PodRestartPattern = {
+  namespace: string;
+  podName: string;
+  pattern: string;
+  severity: RiskLevel;
+  restarts: number;
+  evidence: string[];
+};
+
+type GoldenSignal = {
+  service: string;
+  latencyMs: number;
+  trafficRpm: number;
+  errorRatePercent: number;
+  saturationPercent: number;
+  sloTarget: string;
+  incidentPriority: string;
+  impact: string;
+};
+
+type DriftSignal = {
+  kind: string;
+  namespace: string;
+  name: string;
+  field: string;
+  expectedValue: string;
+  actualValue: string;
+  severity: RiskLevel;
+};
+
+type RbacPermission = {
+  capability: string;
+  verb: string;
+  resource: string;
+  allowed: boolean;
+  reason: string;
+};
+
+type RbacScanResponse = {
+  clusterId: string;
+  permissions: RbacPermission[];
+  error: string;
+  observedAt: string;
+};
+
+type RunbookCodeDefinition = {
+  incidentType: string;
+  version: string;
+  steps: string[];
+  aiAfter: string[];
+};
+
+type DeploymentSpecChange = {
+  field: string;
+  previousValue: string;
+  currentValue: string;
+  impact: string;
+};
+
+type DeploymentDiffResponse = {
+  clusterId: string;
+  namespace: string;
+  deploymentName: string;
+  baselineCaptured: boolean;
+  changes: DeploymentSpecChange[];
+  observedAt: string;
+};
+
+type IncidentReplayResponse = {
+  replayId: string;
+  title: string;
+  clusterId: string;
+  namespace: string;
+  timeline: IncidentTimelineItem[];
+  restartPatterns: PodRestartPattern[];
+  deduplicatedEvents: DeduplicatedEvent[];
+  investigationSteps: string[];
+  loadedAt: string;
+};
+
+type PlatformIntelligenceResponse = {
+  clusterId: string;
+  clusters: ClusterContext[];
+  namespaceRisk: NamespaceRiskProfile;
+  timeline: IncidentTimelineItem[];
+  deduplicatedEvents: DeduplicatedEvent[];
+  restartPatterns: PodRestartPattern[];
+  goldenSignals: GoldenSignal[];
+  drift: DriftSignal[];
+  rbac: RbacScanResponse;
+  runbooksAsCode: RunbookCodeDefinition[];
+  error: string;
+  observedAt: string;
+};
+
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-type Tab = 'overview' | 'workloads' | 'events' | 'logs' | 'ai';
+type Tab = 'overview' | 'workloads' | 'events' | 'logs' | 'ai' | 'platform';
 
 const namespace = 'aegis';
+const clusterId = 'dev-cluster';
 
 const quickQuestions = [
   'Which environment has issues?',
@@ -205,6 +417,10 @@ const quickQuestions = [
 function App() {
   const [snapshot, setSnapshot] = useState<ClusterSnapshot | null>(null);
   const [snapshotState, setSnapshotState] = useState<LoadState>('idle');
+  const [safety, setSafety] = useState<PlatformSafetyStatus | null>(null);
+  const [safetyState, setSafetyState] = useState<LoadState>('idle');
+  const [watcher, setWatcher] = useState<WatcherStatus | null>(null);
+  const [watcherState, setWatcherState] = useState<LoadState>('idle');
   const [pods, setPods] = useState<PodSummary[]>([]);
   const [deployments, setDeployments] = useState<DeploymentSummary[]>([]);
   const [events, setEvents] = useState<EventSummary[]>([]);
@@ -232,11 +448,20 @@ function App() {
   const [terminalState, setTerminalState] = useState<LoadState>('idle');
   const [terminalError, setTerminalError] = useState('');
   const [remediationIntent, setRemediationIntent] = useState<RemediationIntent | null>(null);
+  const [remediationPlan, setRemediationPlan] = useState<RemediationPlan | null>(null);
   const [remediationReason, setRemediationReason] = useState('');
   const [remediationConfirmation, setRemediationConfirmation] = useState('');
   const [remediationState, setRemediationState] = useState<LoadState>('idle');
   const [remediationResult, setRemediationResult] = useState<RemediationResponse | null>(null);
   const [remediationError, setRemediationError] = useState('');
+  const [runbook, setRunbook] = useState<RunbookResponse | null>(null);
+  const [runbookState, setRunbookState] = useState<LoadState>('idle');
+  const [platformIntelligence, setPlatformIntelligence] = useState<PlatformIntelligenceResponse | null>(null);
+  const [platformState, setPlatformState] = useState<LoadState>('idle');
+  const [deploymentDiff, setDeploymentDiff] = useState<DeploymentDiffResponse | null>(null);
+  const [deploymentDiffState, setDeploymentDiffState] = useState<LoadState>('idle');
+  const [incidentReplay, setIncidentReplay] = useState<IncidentReplayResponse | null>(null);
+  const [incidentReplayState, setIncidentReplayState] = useState<LoadState>('idle');
 
   useEffect(() => {
     void refreshAll();
@@ -247,6 +472,12 @@ function App() {
       setSelectedPod(pods[0].name);
     }
   }, [pods, selectedPod]);
+
+  useEffect(() => {
+    if (pods.length || deployments.length || events.length) {
+      void loadRunbook();
+    }
+  }, [selectedPod, selectedDeployment, pods.length, deployments.length, events.length]);
 
   const warningEvents = events.filter((event) => event.type.toLowerCase() === 'warning');
   const runningPods = pods.filter((pod) => pod.phase === 'Running').length;
@@ -270,10 +501,83 @@ function App() {
     .filter((event) => !showWarningsOnly || event.type.toLowerCase() === 'warning')
     .filter((event) => contains(`${event.reason} ${event.message} ${event.involvedObject}`, query));
   const observedAt = formatTime(snapshot?.observedAt);
-  const refreshing = [snapshotState, environmentState, operationsState, detailState].includes('loading');
+  const mutationBlocked = safety ? !safety.canMutateWithApproval : false;
+  const refreshing = [snapshotState, safetyState, watcherState, environmentState, operationsState, detailState].includes('loading');
+  const namespaceRisk = platformIntelligence?.namespaceRisk;
 
   async function refreshAll() {
-    await Promise.all([loadSnapshot(), loadEnvironmentHealth(), loadOperations(), loadDeploymentDetail(selectedDeployment)]);
+    await Promise.all([
+      loadSafety(),
+      loadWatcher(),
+      loadSnapshot(),
+      loadEnvironmentHealth(),
+      loadOperations(),
+      loadDeploymentDetail(selectedDeployment),
+      loadPlatformIntelligence(),
+      loadDeploymentDiff(selectedDeployment),
+    ]);
+  }
+
+  async function loadSafety() {
+    setSafetyState('loading');
+    try {
+      const response = await fetch('/api/platform/safety');
+      if (!response.ok) throw new Error('safety failed');
+      setSafety(await response.json());
+      setSafetyState('ready');
+    } catch {
+      setSafetyState('error');
+    }
+  }
+
+  async function loadWatcher() {
+    setWatcherState('loading');
+    try {
+      const response = await fetch('/api/kubernetes/watcher/status');
+      if (!response.ok) throw new Error('watcher failed');
+      setWatcher(await response.json());
+      setWatcherState('ready');
+    } catch {
+      setWatcherState('error');
+    }
+  }
+
+  async function loadPlatformIntelligence() {
+    setPlatformState('loading');
+    try {
+      const response = await fetch(`/api/platform-intelligence/namespaces/${namespace}?clusterId=${clusterId}`);
+      if (!response.ok) throw new Error('platform intelligence failed');
+      setPlatformIntelligence(await response.json());
+      setPlatformState('ready');
+    } catch {
+      setPlatformState('error');
+    }
+  }
+
+  async function loadDeploymentDiff(deploymentName = selectedDeployment) {
+    if (!deploymentName) return;
+    setDeploymentDiffState('loading');
+    try {
+      const response = await fetch(`/api/platform-intelligence/namespaces/${namespace}/deployments/${deploymentName}/diff?clusterId=${clusterId}`);
+      if (!response.ok) throw new Error('deployment diff failed');
+      setDeploymentDiff(await response.json());
+      setDeploymentDiffState('ready');
+    } catch {
+      setDeploymentDiffState('error');
+    }
+  }
+
+  async function loadIncidentReplay() {
+    setIncidentReplayState('loading');
+    try {
+      const response = await fetch('/api/platform-intelligence/replay/sample');
+      if (!response.ok) throw new Error('replay failed');
+      setIncidentReplay(await response.json());
+      setIncidentReplayState('ready');
+      setActiveTab('platform');
+    } catch {
+      setIncidentReplayState('error');
+    }
   }
 
   async function loadSnapshot() {
@@ -332,6 +636,38 @@ function App() {
       setDetailState('ready');
     } catch {
       setDetailState('error');
+    }
+  }
+
+  async function loadRunbook() {
+    const pod = pods.find((item) => item.name === selectedPod);
+    const deployment = deployments.find((item) => item.name === selectedDeployment);
+    const resourceKind = pod ? 'Pod' : 'Deployment';
+    const resourceName = pod?.name ?? deployment?.name ?? selectedDeployment;
+    if (!resourceName) return;
+    const signals = [
+      ...(pod?.statusReasons ?? []),
+      ...(deployment ? [`ready ${deployment.readyReplicas}/${deployment.replicas}`, `available ${deployment.availableReplicas}/${deployment.replicas}`] : []),
+      ...warningEvents.slice(0, 4).map((event) => `${event.reason}: ${event.message}`),
+    ];
+    setRunbookState('loading');
+    try {
+      const response = await fetch('/api/runbooks/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          namespace,
+          resourceKind,
+          resourceName,
+          symptom: signals.join(' ') || `Evaluate ${resourceKind} ${resourceName}`,
+          signals,
+        }),
+      });
+      if (!response.ok) throw new Error('runbook failed');
+      setRunbook(await response.json());
+      setRunbookState('ready');
+    } catch {
+      setRunbookState('error');
     }
   }
 
@@ -498,6 +834,7 @@ function App() {
     setSelectedDeployment(name);
     setActiveTab('workloads');
     void loadDeploymentDetail(name);
+    void loadDeploymentDiff(name);
   }
 
   function selectPod(name: string) {
@@ -545,15 +882,43 @@ function App() {
     }
   }
 
-  function openRemediation(action: RemediationAction) {
-    const targetName = action === 'ROLLOUT_RESTART_DEPLOYMENT' ? selectedDeployment : selectedPod;
+  function openRemediation(action: RemediationAction, recommendation?: RunbookRecommendation) {
+    const targetName = recommendation?.targetName && !recommendation.targetName.startsWith('<')
+      ? recommendation.targetName
+      : deploymentAction(action)
+        ? selectedDeployment
+        : selectedPod;
     if (!targetName) return;
-    setRemediationIntent({ action, targetName });
+    const nextIntent: RemediationIntent = {
+      action,
+      targetName,
+      replicas: action === 'SCALE_DEPLOYMENT' ? deployments.find((item) => item.name === targetName)?.replicas ?? 2 : undefined,
+      containerName: action === 'PATCH_RESOURCE_LIMITS' ? firstContainerName() : undefined,
+      cpuLimit: action === 'PATCH_RESOURCE_LIMITS' ? '500m' : undefined,
+      memoryLimit: action === 'PATCH_RESOURCE_LIMITS' ? '512Mi' : undefined,
+    };
+    setRemediationIntent(nextIntent);
+    setRemediationPlan(null);
     setRemediationReason(defaultRemediationReason(action, targetName));
     setRemediationConfirmation('');
     setRemediationState('idle');
     setRemediationError('');
     setRemediationResult(null);
+    void loadRemediationPlan(nextIntent);
+  }
+
+  async function loadRemediationPlan(intent: RemediationIntent) {
+    try {
+      const response = await fetch('/api/remediation/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(remediationPayload(intent, false)),
+      });
+      if (!response.ok) throw new Error('plan failed');
+      setRemediationPlan(await response.json());
+    } catch {
+      setRemediationPlan(null);
+    }
   }
 
   async function executeRemediation() {
@@ -564,14 +929,7 @@ function App() {
       const response = await fetch('/api/remediation/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: remediationIntent.action,
-          namespace,
-          targetName: remediationIntent.targetName,
-          reason: remediationReason,
-          approved: remediationConfirmation.trim() === 'APPROVE',
-          confirmation: remediationConfirmation,
-        }),
+        body: JSON.stringify(remediationPayload(remediationIntent, true)),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: 'Remediation failed' }));
@@ -585,6 +943,27 @@ function App() {
       setRemediationError(error instanceof Error ? error.message : 'Remediation failed');
       setRemediationState('error');
     }
+  }
+
+  function remediationPayload(intent: RemediationIntent, approved: boolean) {
+    return {
+      action: intent.action,
+      namespace,
+      targetName: intent.targetName,
+      reason: remediationReason || defaultRemediationReason(intent.action, intent.targetName),
+      approved: approved && remediationConfirmation.trim() === 'APPROVE',
+      confirmation: approved ? remediationConfirmation : 'PLAN_ONLY',
+      replicas: intent.replicas,
+      containerName: intent.containerName,
+      cpuLimit: intent.cpuLimit,
+      memoryLimit: intent.memoryLimit,
+    };
+  }
+
+  function firstContainerName() {
+    const fromDetail = deploymentDetail?.containers[0]?.split(' uses ')[0];
+    const fromPod = pods.find((pod) => pod.name === selectedPod)?.containers[0];
+    return fromDetail || fromPod || selectedDeployment;
   }
 
   function recallTerminalCommand(direction: 'older' | 'newer') {
@@ -633,7 +1012,8 @@ function App() {
         <MetricCard icon={<Gauge />} label="Workload readiness" value={`${workloadReadiness}%`} trend={`${readyDeployments}/${deployments.length || 0} deployments`} tone="green" />
         <MetricCard icon={<Server />} label="Running pods" value={`${runningPods}/${pods.length || 0}`} trend={`${restartTotal} restarts`} tone="blue" />
         <MetricCard icon={<AlertTriangle />} label="Warning events" value={warningEvents.length} trend={`last scan ${observedAt}`} tone={warningEvents.length ? 'amber' : 'green'} />
-        <MetricCard icon={<Layers3 />} label="Environments with issues" value={unhealthyEnvironments.length} trend={`${criticalEnvironments} critical`} tone={criticalEnvironments ? 'amber' : 'violet'} />
+        <MetricCard icon={<Layers3 />} label="Namespace risk" value={namespaceRisk?.riskLevel ?? 'MEDIUM'} trend={namespaceRisk ? `+${namespaceRisk.riskScoreModifier} remediation risk` : 'profile loading'} tone={namespaceRisk?.riskLevel === 'HIGH' ? 'amber' : 'violet'} />
+        <MetricCard icon={<Layers3 />} label="Watcher resources" value={watcher?.resources.length ?? 0} trend={(watcher?.watchedResources ?? []).join(', ') || 'pods, deployments, events'} tone="violet" />
       </section>
 
       <section className="control-bar">
@@ -646,7 +1026,7 @@ function App() {
           />
         </div>
         <div className="segmented-tabs">
-          {(['overview', 'workloads', 'events', 'logs', 'ai'] as Tab[]).map((tab) => (
+          {(['overview', 'workloads', 'events', 'logs', 'ai', 'platform'] as Tab[]).map((tab) => (
             <button className={activeTab === tab ? 'active' : ''} key={tab} onClick={() => setActiveTab(tab)}>
               {tab}
             </button>
@@ -739,10 +1119,20 @@ function App() {
               <strong>Restart deployment</strong>
               <span>{selectedDeployment || 'Select a deployment first'} with approval.</span>
             </button>
-            <button className="action-tile danger-aware" onClick={() => openRemediation('DELETE_MANAGED_POD')} disabled={!selectedPod}>
+            <button className="action-tile danger-aware" onClick={() => openRemediation('RESTART_MANAGED_POD')} disabled={!selectedPod}>
               <Trash2 size={18} />
-              <strong>Delete managed pod</strong>
+              <strong>Restart managed pod</strong>
               <span>{selectedPod || 'Select a pod first'} with approval.</span>
+            </button>
+            <button className="action-tile danger-aware" onClick={() => openRemediation('ROLLBACK_DEPLOYMENT')} disabled={!selectedDeployment}>
+              <RotateCw size={18} />
+              <strong>Rollback deployment</strong>
+              <span>{selectedDeployment || 'Select a deployment first'} after rollout checks.</span>
+            </button>
+            <button className="action-tile danger-aware" onClick={() => openRemediation('SCALE_DEPLOYMENT')} disabled={!selectedDeployment}>
+              <Gauge size={18} />
+              <strong>Scale deployment</strong>
+              <span>{selectedDeployment || 'Select a deployment first'} with bounded replicas.</span>
             </button>
           </div>
           {remediationIntent && (
@@ -750,8 +1140,58 @@ function App() {
               <div>
                 <span>AI-assisted remediation</span>
                 <strong>{remediationTitle(remediationIntent.action)}</strong>
-                <p>{remediationCommand(remediationIntent, namespace)}</p>
+                <p>{remediationPlan?.commandPreview ?? remediationCommand(remediationIntent, namespace)}</p>
+                {remediationPlan && <small>{remediationPlan.risk} / {remediationPlan.namespaceRisk} namespace / risk score {remediationPlan.riskScore}</small>}
               </div>
+              {remediationPlan && (
+                <div className="dry-run-box">
+                  <span>Server dry-run</span>
+                  <code>{remediationPlan.dryRunCommand}</code>
+                  <pre>{remediationPlan.dryRunDiff}</pre>
+                </div>
+              )}
+              {remediationPlan?.deterministicChecks.length ? (
+                <div className="approval-checks">
+                  {remediationPlan.deterministicChecks.map((check) => <p key={check}>{check}</p>)}
+                </div>
+              ) : null}
+              {remediationIntent.action === 'SCALE_DEPLOYMENT' && (
+                <label>
+                  Replicas
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    value={remediationIntent.replicas ?? 1}
+                    onChange={(event) => setRemediationIntent({ ...remediationIntent, replicas: Number(event.target.value) })}
+                  />
+                </label>
+              )}
+              {remediationIntent.action === 'PATCH_RESOURCE_LIMITS' && (
+                <div className="limit-grid">
+                  <label>
+                    Container
+                    <input
+                      value={remediationIntent.containerName ?? ''}
+                      onChange={(event) => setRemediationIntent({ ...remediationIntent, containerName: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    CPU limit
+                    <input
+                      value={remediationIntent.cpuLimit ?? ''}
+                      onChange={(event) => setRemediationIntent({ ...remediationIntent, cpuLimit: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Memory limit
+                    <input
+                      value={remediationIntent.memoryLimit ?? ''}
+                      onChange={(event) => setRemediationIntent({ ...remediationIntent, memoryLimit: event.target.value })}
+                    />
+                  </label>
+                </div>
+              )}
               <label>
                 Reason
                 <textarea value={remediationReason} onChange={(event) => setRemediationReason(event.target.value)} />
@@ -767,9 +1207,9 @@ function App() {
                 <button
                   className="primary-action danger-action"
                   onClick={() => void executeRemediation()}
-                  disabled={remediationState === 'loading' || remediationConfirmation.trim() !== 'APPROVE'}
+                  disabled={mutationBlocked || remediationState === 'loading' || remediationConfirmation.trim() !== 'APPROVE'}
                 >
-                  {remediationState === 'loading' ? 'Executing' : 'Approve and execute'}
+                  {mutationBlocked ? 'Blocked by safety mode' : remediationState === 'loading' ? 'Executing' : 'Approve and execute'}
                 </button>
               </div>
               {remediationError && <p className="inline-error">{remediationError}</p>}
@@ -803,6 +1243,31 @@ function App() {
               items={environmentChart}
               tone="warning"
             />
+          </article>
+
+          <article className="panel span-2">
+            <PanelTitle
+              title="Kubernetes watcher"
+              detail={watcherState === 'error' ? 'Watcher cannot reach the cluster' : `Watching ${(watcher?.watchedResources ?? []).join(', ')}`}
+              action={
+                <button className="ghost-action" onClick={() => void loadWatcher()}>
+                  <RotateCw size={15} />
+                  Reload
+                </button>
+              }
+            />
+            <div className="watcher-grid">
+              {(watcher?.resources ?? []).map((resource) => (
+                <div className="watcher-card" key={resource.resource}>
+                  <span className={resource.status === 'WATCHING' ? 'watching' : 'watch-error'}>{resource.status}</span>
+                  <strong>{resource.resource}</strong>
+                  <p>{resource.observedObjects} objects / {resource.scope}</p>
+                  <code>rv {resource.resourceVersion || 'unavailable'}</code>
+                  {resource.lastError && <small>{resource.lastError}</small>}
+                </div>
+              ))}
+              {!watcher?.resources.length && <EmptyState text="Watcher status has not been collected yet." />}
+            </div>
           </article>
 
           <article className="panel span-2">
@@ -964,6 +1429,52 @@ function App() {
         <section className="dashboard-grid">
           <article className="panel span-2">
             <PanelTitle
+              title="Runbook engine"
+              detail={runbookState === 'loading' ? 'Evaluating deterministic checks' : runbook?.title ?? 'Deterministic triage first'}
+              action={
+                <button className="ghost-action" onClick={() => void loadRunbook()}>
+                  <RotateCw size={15} />
+                  Reload
+                </button>
+              }
+            />
+            {runbook ? (
+              <div className="runbook-grid">
+                <div className="runbook-summary">
+                  <span>{runbook.incidentType.replace(/_/g, ' ')}</span>
+                  <strong>{runbook.title}</strong>
+                  <p>{runbook.summary}</p>
+                  <small>{runbook.aiEscalationPrompt}</small>
+                </div>
+                <div className="runbook-steps">
+                  {runbook.deterministicSteps.map((step) => (
+                    <div className="runbook-step" key={`${step.order}-${step.title}`}>
+                      <b>{step.order}</b>
+                      <div>
+                        <strong>{step.title}</strong>
+                        <code>{step.command}</code>
+                        <p>{step.expectedSignal}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="runbook-actions">
+                  <h3>Suggested approvals</h3>
+                  {runbook.suggestedActions.length ? runbook.suggestedActions.map((action) => (
+                    <button className="action-tile danger-aware" key={`${action.action}-${action.targetName}`} onClick={() => openRemediation(action.action, action)}>
+                      <ShieldCheck size={18} />
+                      <strong>{remediationTitle(action.action)}</strong>
+                      <span>{action.reason}</span>
+                    </button>
+                  )) : <p>No remediation suggested before more evidence is collected.</p>}
+                </div>
+              </div>
+            ) : (
+              <EmptyState text="Select a workload or pod to evaluate the matching runbook." />
+            )}
+          </article>
+          <article className="panel span-2">
+            <PanelTitle
               title="AI triage"
               detail={`Target deployment: ${selectedDeployment}`}
               action={
@@ -986,6 +1497,190 @@ function App() {
             ) : (
               <EmptyState text="Run RCA to combine rollout status, events, logs, and warnings into a triage summary." />
             )}
+          </article>
+        </section>
+      )}
+
+      {activeTab === 'platform' && (
+        <section className="dashboard-grid">
+          <article className="panel span-2">
+            <PanelTitle
+              title="Multi-cluster context"
+              detail={platformState === 'error' ? 'Platform intelligence API unavailable' : `Selected ${platformIntelligence?.clusterId ?? clusterId}`}
+              action={
+                <button className="ghost-action" onClick={() => void loadPlatformIntelligence()}>
+                  <RotateCw size={15} />
+                  Reload
+                </button>
+              }
+            />
+            <div className="cluster-strip">
+              {(platformIntelligence?.clusters ?? []).map((cluster) => (
+                <div className={cluster.current ? 'cluster-pill active' : 'cluster-pill'} key={cluster.clusterId}>
+                  <strong>{cluster.displayName}</strong>
+                  <span>{cluster.clusterId} / {cluster.environment}</span>
+                </div>
+              ))}
+              {!platformIntelligence?.clusters.length && <EmptyState text="Cluster contexts are not loaded yet." />}
+            </div>
+          </article>
+
+          <article className="panel">
+            <PanelTitle title="Namespace risk profile" detail={namespaceRisk?.namespace ?? namespace} />
+            {namespaceRisk ? (
+              <div className="risk-profile">
+                <span className={`risk-badge ${namespaceRisk.riskLevel.toLowerCase()}`}>{namespaceRisk.riskLevel}</span>
+                <strong>+{namespaceRisk.riskScoreModifier} remediation risk</strong>
+                {namespaceRisk.policyReasons.map((reason) => <p key={reason}>{reason}</p>)}
+              </div>
+            ) : <EmptyState text="Risk profile is loading." />}
+          </article>
+
+          <article className="panel">
+            <PanelTitle title="RBAC permission scanner" detail={platformIntelligence?.rbac.error || 'SelfSubjectAccessReview'} />
+            <div className="permission-list">
+              {(platformIntelligence?.rbac.permissions ?? []).map((permission) => (
+                <div className="permission-row" key={`${permission.capability}-${permission.resource}`}>
+                  <StatusDot ok={permission.allowed} />
+                  <div>
+                    <strong>{permission.capability}</strong>
+                    <span>{permission.verb} {permission.resource}</span>
+                  </div>
+                  <code>{permission.allowed ? 'yes' : 'no'}</code>
+                </div>
+              ))}
+              {!platformIntelligence?.rbac.permissions.length && <EmptyState text="RBAC scan needs live cluster access." />}
+            </div>
+          </article>
+
+          <article className="panel span-2">
+            <PanelTitle title="Incident timeline" detail="Built from Kubernetes events" />
+            <div className="timeline-list">
+              {(incidentReplay?.timeline ?? platformIntelligence?.timeline ?? []).slice(0, 8).map((item) => (
+                <div className="timeline-row" key={`${item.timestamp}-${item.stage}-${item.involvedObject}`}>
+                  <time>{formatTime(item.timestamp)}</time>
+                  <div>
+                    <strong>{item.stage}</strong>
+                    <span>{item.involvedObject} / {item.reason}</span>
+                    <p>{item.message}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="panel">
+            <PanelTitle title="Event deduplication" detail="Grouped noisy Kubernetes events" />
+            <div className="event-stack">
+              {(incidentReplay?.deduplicatedEvents ?? platformIntelligence?.deduplicatedEvents ?? []).slice(0, 6).map((event) => (
+                <div className="dedupe-row" key={`${event.reason}-${event.involvedObject}`}>
+                  <strong>{event.reason} x{event.occurrences}</strong>
+                  <span>{event.involvedObject}</span>
+                  <p>{event.message}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="panel">
+            <PanelTitle title="Pod restart patterns" detail="Deterministic detection before AI" />
+            <div className="pattern-list">
+              {(incidentReplay?.restartPatterns ?? platformIntelligence?.restartPatterns ?? []).slice(0, 6).map((pattern) => (
+                <div className="pattern-row" key={`${pattern.podName}-${pattern.pattern}`}>
+                  <span className={`risk-badge ${pattern.severity.toLowerCase()}`}>{pattern.severity}</span>
+                  <strong>{pattern.pattern}</strong>
+                  <p>{pattern.podName} / {pattern.restarts} restarts</p>
+                </div>
+              ))}
+              {!(incidentReplay?.restartPatterns.length || platformIntelligence?.restartPatterns.length) && <EmptyState text="No restart pattern detected." />}
+            </div>
+          </article>
+
+          <article className="panel span-2">
+            <PanelTitle title="Golden signals and SLO priority" detail="Latency, traffic, errors, saturation" />
+            <div className="golden-grid">
+              {(platformIntelligence?.goldenSignals ?? []).map((signal) => (
+                <div className="golden-card" key={signal.service}>
+                  <div>
+                    <strong>{signal.service}</strong>
+                    <span>{signal.incidentPriority} / SLO {signal.sloTarget}</span>
+                  </div>
+                  <Bar label="Latency" value={Math.round(signal.latencyMs)} total={500} />
+                  <Bar label="Traffic" value={Math.round(signal.trafficRpm)} total={1000} />
+                  <Bar label="Errors" value={Math.round(signal.errorRatePercent)} total={100} />
+                  <Bar label="Saturation" value={Math.round(signal.saturationPercent)} total={100} />
+                  <p>{signal.impact}</p>
+                </div>
+              ))}
+              {!platformIntelligence?.goldenSignals.length && <EmptyState text="No service golden signals returned." />}
+            </div>
+          </article>
+
+          <article className="panel span-2">
+            <PanelTitle title="Deployment diff" detail={deploymentDiffState === 'loading' ? 'Loading diff' : selectedDeployment} />
+            <div className="diff-list">
+              {(deploymentDiff?.changes ?? []).map((change) => (
+                <div className="diff-row" key={`${change.field}-${change.currentValue}`}>
+                  <strong>{change.field}</strong>
+                  <code>{change.previousValue} {'->'} {change.currentValue}</code>
+                  <p>{change.impact}</p>
+                </div>
+              ))}
+              {!deploymentDiff?.changes.length && <EmptyState text="No previous deployment snapshot captured yet." />}
+            </div>
+          </article>
+
+          <article className="panel">
+            <PanelTitle title="Cluster drift and GitOps" detail="Live state vs desired manifests" />
+            <div className="drift-list">
+              {(platformIntelligence?.drift ?? []).slice(0, 8).map((drift) => (
+                <div className="drift-row" key={`${drift.name}-${drift.field}`}>
+                  <span className={`risk-badge ${drift.severity.toLowerCase()}`}>{drift.severity}</span>
+                  <strong>{drift.name} / {drift.field}</strong>
+                  <code>{drift.expectedValue} {'->'} {drift.actualValue}</code>
+                </div>
+              ))}
+              {!platformIntelligence?.drift.length && <EmptyState text="No drift detected from local desired manifests." />}
+            </div>
+          </article>
+
+          <article className="panel">
+            <PanelTitle title="Runbook-as-code" detail="YAML-backed deterministic steps" />
+            <div className="runbook-code-list">
+              {(platformIntelligence?.runbooksAsCode ?? []).map((definition) => (
+                <div className="runbook-code" key={definition.incidentType}>
+                  <strong>{definition.incidentType}</strong>
+                  <span>{definition.version}</span>
+                  <code>{definition.steps.join(' -> ')}</code>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="panel span-2">
+            <PanelTitle
+              title="Incident replay mode"
+              detail={incidentReplay?.title ?? 'Load the sample incident JSON'}
+              action={
+                <button className="primary-action compact-action" onClick={() => void loadIncidentReplay()} disabled={incidentReplayState === 'loading'}>
+                  <Clock3 size={15} />
+                  {incidentReplayState === 'loading' ? 'Loading' : 'Load Replay'}
+                </button>
+              }
+            />
+            {incidentReplay ? (
+              <div className="replay-steps">
+                {incidentReplay.investigationSteps.map((step, index) => (
+                  <div className="runbook-step" key={step}>
+                    <b>{index + 1}</b>
+                    <div>
+                      <strong>{step}</strong>
+                      <p>{incidentReplay.replayId} / {incidentReplay.namespace}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <EmptyState text="Load the replay to demo a deterministic investigation without a live incident." />}
           </article>
         </section>
       )}
@@ -1227,21 +1922,60 @@ function wantsLogs(message: string) {
 }
 
 function remediationTitle(action: RemediationAction) {
-  return action === 'ROLLOUT_RESTART_DEPLOYMENT'
-    ? 'Rollout restart selected deployment'
-    : 'Delete selected managed pod';
+  switch (action) {
+    case 'ROLLOUT_RESTART_DEPLOYMENT':
+      return 'Rollout restart selected deployment';
+    case 'RESTART_MANAGED_POD':
+    case 'DELETE_MANAGED_POD':
+      return 'Restart selected managed pod';
+    case 'ROLLBACK_DEPLOYMENT':
+      return 'Rollback selected deployment';
+    case 'SCALE_DEPLOYMENT':
+      return 'Scale selected deployment';
+    case 'PATCH_RESOURCE_LIMITS':
+      return 'Patch deployment resource limits';
+  }
 }
 
 function remediationCommand(intent: RemediationIntent, namespace: string) {
-  return intent.action === 'ROLLOUT_RESTART_DEPLOYMENT'
-    ? `kubectl rollout restart deployment/${intent.targetName} -n ${namespace}`
-    : `kubectl delete pod/${intent.targetName} -n ${namespace}`;
+  switch (intent.action) {
+    case 'ROLLOUT_RESTART_DEPLOYMENT':
+      return `kubectl rollout restart deployment/${intent.targetName} -n ${namespace}`;
+    case 'RESTART_MANAGED_POD':
+    case 'DELETE_MANAGED_POD':
+      return `kubectl delete pod/${intent.targetName} -n ${namespace}`;
+    case 'ROLLBACK_DEPLOYMENT':
+      return `kubectl rollout undo deployment/${intent.targetName} -n ${namespace}`;
+    case 'SCALE_DEPLOYMENT':
+      return `kubectl scale deployment/${intent.targetName} --replicas=${intent.replicas ?? 1} -n ${namespace}`;
+    case 'PATCH_RESOURCE_LIMITS':
+      return `kubectl set resources deployment/${intent.targetName} -c ${intent.containerName ?? '<container>'} --limits=cpu=${intent.cpuLimit ?? '<cpu>'},memory=${intent.memoryLimit ?? '<memory>'} -n ${namespace}`;
+  }
 }
 
 function defaultRemediationReason(action: RemediationAction, targetName: string) {
-  return action === 'ROLLOUT_RESTART_DEPLOYMENT'
-    ? `Human-approved restart for deployment ${targetName} after reviewing Aegis RCA signals.`
-    : `Human-approved managed pod replacement for ${targetName} after reviewing Aegis RCA signals.`;
+  switch (action) {
+    case 'ROLLOUT_RESTART_DEPLOYMENT':
+      return `Human-approved restart for deployment ${targetName} after reviewing Aegis RCA signals.`;
+    case 'RESTART_MANAGED_POD':
+    case 'DELETE_MANAGED_POD':
+      return `Human-approved managed pod replacement for ${targetName} after reviewing Aegis RCA signals.`;
+    case 'ROLLBACK_DEPLOYMENT':
+      return `Human-approved rollback for deployment ${targetName} after failed rollout checks.`;
+    case 'SCALE_DEPLOYMENT':
+      return `Human-approved scale change for deployment ${targetName} after capacity and scheduling checks.`;
+    case 'PATCH_RESOURCE_LIMITS':
+      return `Human-approved resource limit patch for deployment ${targetName} after OOM or capacity evidence.`;
+  }
+}
+
+function deploymentAction(action: RemediationAction) {
+  return [
+    'ROLLOUT_RESTART_DEPLOYMENT',
+    'ROLLBACK_DEPLOYMENT',
+    'SCALE_DEPLOYMENT',
+    'PATCH_RESOURCE_LIMITS',
+  ].includes(action);
 }
 
 function formatTime(value?: string | null) {

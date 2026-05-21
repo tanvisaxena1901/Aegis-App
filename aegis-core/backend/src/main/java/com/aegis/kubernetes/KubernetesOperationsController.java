@@ -15,6 +15,7 @@ import reactor.core.publisher.Mono;
 public class KubernetesOperationsController {
 
     private final KubernetesOperationsService operationsService;
+    private final KubernetesWatcherService watcherService;
 
     @GetMapping("/namespaces/{namespace}/pods")
     public Mono<List<KubernetesPodSummary>> pods(@PathVariable String namespace) {
@@ -55,5 +56,10 @@ public class KubernetesOperationsController {
     @GetMapping("/namespaces/{namespace}/events")
     public Mono<List<KubernetesEventSummary>> events(@PathVariable String namespace) {
         return operationsService.events(namespace);
+    }
+
+    @GetMapping("/watcher/status")
+    public WatcherStatus watcherStatus() {
+        return watcherService.status();
     }
 }

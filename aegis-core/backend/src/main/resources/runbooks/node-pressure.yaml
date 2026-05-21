@@ -1,0 +1,9 @@
+incidentType: NodePressure
+version: v1
+steps:
+  - list_node_conditions
+  - review_node_events
+  - identify_affected_pods
+  - check_eviction_thresholds
+aiAfter:
+  - summarize_capacity_or_noisy_neighbor_risk

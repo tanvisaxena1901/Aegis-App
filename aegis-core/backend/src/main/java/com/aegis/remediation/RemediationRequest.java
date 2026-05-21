@@ -9,6 +9,10 @@ public record RemediationRequest(
         @NotBlank String targetName,
         @NotBlank String reason,
         boolean approved,
-        @NotBlank String confirmation
+        @NotBlank String confirmation,
+        Integer replicas,
+        String containerName,
+        String cpuLimit,
+        String memoryLimit
 ) {
 }

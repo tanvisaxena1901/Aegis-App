@@ -1,0 +1,11 @@
+incidentType: CrashLoopBackOff
+version: v1
+steps:
+  - check_container_state
+  - check_previous_logs
+  - check_restart_count
+  - check_memory_limits
+  - compare_recent_deployment
+aiAfter:
+  - summarize_app_error
+  - map_failure_to_recent_change

@@ -1,0 +1,9 @@
+incidentType: OOMKilled
+version: v1
+steps:
+  - confirm_last_termination
+  - check_memory_limits
+  - check_node_pressure
+  - compare_recent_deployment
+aiAfter:
+  - explain_memory_growth_or_limit_regression

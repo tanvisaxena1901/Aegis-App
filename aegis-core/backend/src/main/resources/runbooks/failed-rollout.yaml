@@ -1,0 +1,9 @@
+incidentType: FailedRollout
+version: v1
+steps:
+  - check_rollout_status
+  - compare_replicasets
+  - inspect_new_pod_events
+  - compare_recent_deployment
+aiAfter:
+  - recommend_rollback_or_forward_fix

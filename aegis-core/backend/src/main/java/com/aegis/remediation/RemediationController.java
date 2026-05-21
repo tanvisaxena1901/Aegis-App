@@ -15,6 +15,11 @@ public class RemediationController {
 
     private final RemediationService remediationService;
 
+    @PostMapping("/plan")
+    public Mono<RemediationPlan> plan(@Valid @RequestBody RemediationRequest request) {
+        return remediationService.plan(request);
+    }
+
     @PostMapping("/execute")
     public Mono<RemediationResponse> execute(@Valid @RequestBody RemediationRequest request) {
         return remediationService.execute(request);

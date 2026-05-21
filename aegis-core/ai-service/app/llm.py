@@ -67,6 +67,8 @@ def chat(request: GeneralChatRequest) -> GeneralChatResponse:
     token_budget = 90 if not has_cluster_context else 320
     model_override = os.getenv("OLLAMA_GENERAL_MODEL", "qwen2.5:0.5b") if not has_cluster_context else None
     result = complete_chat(messages, max_tokens=token_budget, temperature=0.25, model_override=model_override)
+    if not result["available"]:
+        result["answer"] = _local_fallback_answer(request, has_cluster_context, result["answer"])
     return GeneralChatResponse(
         answer=result["answer"],
         model=result["model"],
@@ -170,6 +172,54 @@ def _unavailable(provider: str, model: str, detail: str) -> dict[str, object]:
         "model": model,
         "available": False,
     }
+
+
+def _local_fallback_answer(request: GeneralChatRequest, has_cluster_context: bool, provider_detail: str) -> str:
+    message = request.message.strip()
+    normalized = message.lower()
+    provider_note = provider_detail.split(". Checked ", 1)[0]
+
+    if has_cluster_context:
+        evidence = request.evidence[:8]
+        metrics = request.metrics[:8]
+        lines = [
+            "I can still help from deterministic Aegis context, but the model provider is offline.",
+            "",
+            "What I can see:",
+        ]
+        if evidence:
+            lines.extend(f"- {item}" for item in evidence)
+        if metrics:
+            lines.extend(f"- {item}" for item in metrics)
+        if not evidence and not metrics:
+            lines.append("- No live Kubernetes evidence was attached to this chat turn.")
+        lines.extend(
+            [
+                "",
+                "Next checks:",
+                "- Use the runbook steps first: describe the resource, review warning events, and inspect previous logs if restarts are present.",
+                "- Do not execute remediation until a specific action is approved.",
+                "",
+                f"Provider status: {provider_note}.",
+            ]
+        )
+        return "\n".join(lines)
+
+    if any(token in normalized for token in ["hello", "hi", "hey"]):
+        return (
+            "Hi. Aegis is online, but the local model provider is currently unavailable. "
+            "I can still answer Kubernetes dashboard questions using deterministic runbooks, events, pods, rollout state, and logs."
+        )
+    if "what can you do" in normalized or "help" in normalized:
+        return (
+            "I can inspect Kubernetes health, summarize failing pods, group noisy events, explain runbook steps, and prepare approval-gated remediation plans. "
+            "The free-form LLM provider is offline right now, so answers are deterministic until Ollama or OpenAI is available."
+        )
+    return (
+        "Aegis received your message, but the model provider is offline. "
+        "Ask about cluster health, failing pods, warning events, deployment rollout, logs, runbooks, or remediation approvals and I will answer from deterministic platform data. "
+        f"Provider status: {provider_note}."
+    )
 
 
 def _truncate(value: str, max_chars: int) -> str:

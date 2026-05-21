@@ -8,6 +8,9 @@ server:
 aegis:
   ai-service:
     base-url: ${AEGIS_AI_SERVICE_URL:http://127.0.0.1:8090}
+  platform:
+    safety-mode: ${AEGIS_SAFETY_MODE:APPROVAL_REQUIRED}
+    watcher-refresh-ms: ${AEGIS_WATCHER_REFRESH_MS:30000}
 
 management:
   endpoints:
