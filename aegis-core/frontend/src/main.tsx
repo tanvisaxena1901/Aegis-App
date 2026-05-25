@@ -401,8 +401,122 @@ type PlatformIntelligenceResponse = {
   observedAt: string;
 };
 
+type RuntimeEvent = {
+  streamId: string;
+  eventType: string;
+  incidentId: string;
+  workflowId: string;
+  service: string;
+  payload: Record<string, string>;
+  createdAt: string;
+};
+
+type WorkflowStepExecution = {
+  stepId: string;
+  stepType: string;
+  agentType: string;
+  status: string;
+  attempt: number;
+  maxAttempts: number;
+  output: string;
+  evidence: string[];
+  startedAt: string | null;
+  completedAt: string | null;
+  nextAttemptAt: string | null;
+};
+
+type AgentExecution = {
+  executionId: string;
+  workflowId: string;
+  stepId: string;
+  agentType: string;
+  status: string;
+  inputSignals: string[];
+  output: string;
+  startedAt: string | null;
+  completedAt: string | null;
+};
+
+type RetryState = {
+  workflowId: string;
+  stepId: string;
+  attempt: number;
+  maxAttempts: number;
+  backoffMillis: number;
+  nextAttemptAt: string | null;
+  lastError: string;
+};
+
+type WorkflowExecution = {
+  workflowId: string;
+  incidentId: string;
+  service: string;
+  namespace: string;
+  clusterId: string;
+  symptom: string;
+  signals: string[];
+  currentStep: string;
+  status: string;
+  steps: WorkflowStepExecution[];
+  agentExecutions: AgentExecution[];
+  retries: RetryState[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type MemoryNode = {
+  id: string;
+  label: string;
+  type: string;
+  properties: Record<string, string>;
+  observedAt: string;
+};
+
+type MemoryEdge = {
+  from: string;
+  to: string;
+  relationship: string;
+  weight: number;
+};
+
+type OperationalMemoryGraph = {
+  nodes: MemoryNode[];
+  edges: MemoryEdge[];
+  causalPaths: string[];
+  storageMode: string;
+  observedAt: string;
+};
+
+type RuntimeStatusResponse = {
+  eventBus: string;
+  stateStore: string;
+  memoryGraph: string;
+  queuedEvents: number;
+  recentEvents: RuntimeEvent[];
+  workflows: WorkflowExecution[];
+  memory: OperationalMemoryGraph;
+  observedAt: string;
+};
+
+type RuntimeDispatchResponse = {
+  incidentId: string;
+  workflowId: string;
+  eventStreamId: string;
+  status: string;
+  acceptedSignals: string[];
+  createdAt: string;
+};
+
+type AgentRegistryEntry = {
+  agentType: string;
+  displayName: string;
+  ownsSteps: string[];
+  runtime: string;
+  responsibility: string;
+};
+
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-type Tab = 'overview' | 'workloads' | 'events' | 'logs' | 'ai' | 'platform';
+type Tab = 'overview' | 'workloads' | 'events' | 'logs' | 'ai' | 'platform' | 'runtime';
 
 const namespace = 'aegis';
 const clusterId = 'dev-cluster';
@@ -462,6 +576,11 @@ function App() {
   const [deploymentDiffState, setDeploymentDiffState] = useState<LoadState>('idle');
   const [incidentReplay, setIncidentReplay] = useState<IncidentReplayResponse | null>(null);
   const [incidentReplayState, setIncidentReplayState] = useState<LoadState>('idle');
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatusResponse | null>(null);
+  const [runtimeAgents, setRuntimeAgents] = useState<AgentRegistryEntry[]>([]);
+  const [runtimeState, setRuntimeState] = useState<LoadState>('idle');
+  const [runtimeDispatch, setRuntimeDispatch] = useState<RuntimeDispatchResponse | null>(null);
+  const [runtimeError, setRuntimeError] = useState('');
 
   useEffect(() => {
     void refreshAll();
@@ -515,6 +634,8 @@ function App() {
       loadDeploymentDetail(selectedDeployment),
       loadPlatformIntelligence(),
       loadDeploymentDiff(selectedDeployment),
+      loadRuntimeStatus(),
+      loadRuntimeAgents(),
     ]);
   }
 
@@ -577,6 +698,28 @@ function App() {
       setActiveTab('platform');
     } catch {
       setIncidentReplayState('error');
+    }
+  }
+
+  async function loadRuntimeStatus() {
+    setRuntimeState('loading');
+    try {
+      const response = await fetch('/api/runtime/status');
+      if (!response.ok) throw new Error('runtime status failed');
+      setRuntimeStatus(await response.json());
+      setRuntimeState('ready');
+    } catch {
+      setRuntimeState('error');
+    }
+  }
+
+  async function loadRuntimeAgents() {
+    try {
+      const response = await fetch('/api/runtime/agents');
+      if (!response.ok) throw new Error('runtime agents failed');
+      setRuntimeAgents(await response.json());
+    } catch {
+      setRuntimeAgents([]);
     }
   }
 
@@ -715,6 +858,52 @@ function App() {
       setInvestigationState('ready');
     } catch {
       setInvestigationState('error');
+    }
+  }
+
+  async function createRuntimeIncident() {
+    setRuntimeState('loading');
+    setRuntimeError('');
+    setActiveTab('runtime');
+    const service = selectedDeployment || deployments[0]?.name || 'aegis-backend';
+    const selectedPodSummary = pods.find((pod) => pod.name === selectedPod);
+    const selectedDeploymentSummary = deployments.find((deployment) => deployment.name === service);
+    const signals = [
+      ...warningEvents.slice(0, 8).map((event) => `${event.type}/${event.reason}: ${event.message}`),
+      ...(selectedPodSummary?.statusReasons ?? []),
+      ...(selectedDeploymentSummary
+        ? [
+            `deployment replicas ${selectedDeploymentSummary.readyReplicas}/${selectedDeploymentSummary.replicas}`,
+            `deployment images ${selectedDeploymentSummary.images.join(', ')}`,
+          ]
+        : []),
+      `workload_readiness=${workloadReadiness}`,
+      `namespace_restarts=${restartTotal}`,
+    ].filter(Boolean);
+    try {
+      const response = await fetch('/api/runtime/incidents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service,
+          namespace,
+          clusterId,
+          severity: criticalEnvironments ? 'HIGH' : unhealthyEnvironments.length ? 'MEDIUM' : 'LOW',
+          symptom: warningEvents.length
+            ? `Investigate ${service}: ${warningEvents[0].reason} in ${namespace}`
+            : `Autonomous runtime investigation for ${service}`,
+          signals,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Runtime incident dispatch failed' }));
+        throw new Error(error.message || 'Runtime incident dispatch failed');
+      }
+      setRuntimeDispatch(await response.json());
+      await loadRuntimeStatus();
+    } catch (error) {
+      setRuntimeError(error instanceof Error ? error.message : 'Runtime incident dispatch failed');
+      setRuntimeState('error');
     }
   }
 
@@ -1005,6 +1194,10 @@ function App() {
             <Bot size={17} />
             {investigationState === 'loading' ? 'Analyzing' : 'Analyze'}
           </button>
+          <button className="secondary-action" onClick={() => void createRuntimeIncident()} disabled={runtimeState === 'loading'}>
+            <ShieldCheck size={17} />
+            {runtimeState === 'loading' ? 'Dispatching' : 'Runtime'}
+          </button>
         </div>
       </section>
 
@@ -1026,7 +1219,7 @@ function App() {
           />
         </div>
         <div className="segmented-tabs">
-          {(['overview', 'workloads', 'events', 'logs', 'ai', 'platform'] as Tab[]).map((tab) => (
+          {(['overview', 'workloads', 'events', 'logs', 'ai', 'platform', 'runtime'] as Tab[]).map((tab) => (
             <button className={activeTab === tab ? 'active' : ''} key={tab} onClick={() => setActiveTab(tab)}>
               {tab}
             </button>
@@ -1681,6 +1874,143 @@ function App() {
                 ))}
               </div>
             ) : <EmptyState text="Load the replay to demo a deterministic investigation without a live incident." />}
+          </article>
+        </section>
+      )}
+
+      {activeTab === 'runtime' && (
+        <section className="dashboard-grid">
+          <article className="panel span-2">
+            <PanelTitle
+              title="Autonomous incident runtime"
+              detail={runtimeStatus ? `${runtimeStatus.eventBus} / ${runtimeStatus.stateStore}` : 'Workflow runtime is loading'}
+              action={
+                <div className="panel-actions">
+                  <button className="ghost-action" onClick={() => void loadRuntimeStatus()}>
+                    <RotateCw size={15} />
+                    Reload
+                  </button>
+                  <button className="primary-action compact-action" onClick={() => void createRuntimeIncident()} disabled={runtimeState === 'loading'}>
+                    <ShieldCheck size={15} />
+                    Create Incident
+                  </button>
+                </div>
+              }
+            />
+            {runtimeError && <p className="inline-error">{runtimeError}</p>}
+            {runtimeDispatch && (
+              <div className="runtime-dispatch">
+                <strong>{runtimeDispatch.incidentId}</strong>
+                <span>{runtimeDispatch.workflowId} / stream {runtimeDispatch.eventStreamId}</span>
+                <p>{runtimeDispatch.acceptedSignals.length} signals accepted into the runtime event stream.</p>
+              </div>
+            )}
+            <div className="runtime-architecture">
+              {['K8s Events', 'Event Bus', 'Workflow Runtime', 'AI Agents', 'Operational Memory', 'Remediation Engine'].map((stage) => (
+                <div className="runtime-stage" key={stage}>
+                  <span>{stage}</span>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="panel">
+            <PanelTitle title="Agent registry" detail="Stateful agent ownership" />
+            <div className="agent-list">
+              {runtimeAgents.map((agent) => (
+                <div className="agent-row" key={agent.agentType}>
+                  <strong>{agent.displayName}</strong>
+                  <span>{agent.runtime}</span>
+                  <p>{agent.responsibility}</p>
+                  <code>{agent.ownsSteps.join(' -> ')}</code>
+                </div>
+              ))}
+              {!runtimeAgents.length && <EmptyState text="Agent registry is not loaded." />}
+            </div>
+          </article>
+
+          <article className="panel">
+            <PanelTitle title="Event stream" detail={`${runtimeStatus?.queuedEvents ?? 0} queued events`} />
+            <div className="event-stack">
+              {(runtimeStatus?.recentEvents ?? []).slice(0, 8).map((event) => (
+                <div className="dedupe-row" key={event.streamId}>
+                  <strong>{event.eventType}</strong>
+                  <span>{event.service} / {event.workflowId}</span>
+                  <p>{formatTime(event.createdAt)} / {event.streamId}</p>
+                </div>
+              ))}
+              {!runtimeStatus?.recentEvents.length && <EmptyState text="No runtime events have been published yet." />}
+            </div>
+          </article>
+
+          <article className="panel span-2">
+            <PanelTitle title="Workflow persistence and recovery" detail={runtimeStatus?.workflows[0]?.status ?? 'No workflow yet'} />
+            <div className="workflow-list">
+              {(runtimeStatus?.workflows ?? []).map((workflow) => (
+                <div className="workflow-card" key={workflow.workflowId}>
+                  <div className="workflow-head">
+                    <div>
+                      <strong>{workflow.service}</strong>
+                      <span>{workflow.incidentId} / {workflow.workflowId}</span>
+                    </div>
+                    <span className={`runtime-status ${workflow.status.toLowerCase()}`}>{workflow.status}</span>
+                  </div>
+                  <p>{workflow.symptom}</p>
+                  <div className="step-track">
+                    {workflow.steps.map((step) => (
+                      <div className={`step-chip ${step.status.toLowerCase()}`} key={step.stepId}>
+                        <b>{step.stepType}</b>
+                        <span>{step.agentType} / attempt {step.attempt}/{step.maxAttempts}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {workflow.retries.length ? (
+                    <div className="retry-list">
+                      {workflow.retries.map((retry) => (
+                        <p key={`${retry.stepId}-${retry.attempt}`}>{retry.stepId}: retry {retry.attempt}/{retry.maxAttempts} at {formatTime(retry.nextAttemptAt)}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+              {!runtimeStatus?.workflows.length && <EmptyState text="Create an incident to start the stateful workflow runtime." />}
+            </div>
+          </article>
+
+          <article className="panel">
+            <PanelTitle title="Agent executions" detail="LangGraph tasks and fallbacks" />
+            <div className="agent-execution-list">
+              {(runtimeStatus?.workflows ?? []).flatMap((workflow) => workflow.agentExecutions).slice(0, 8).map((execution) => (
+                <div className="agent-execution" key={execution.executionId}>
+                  <strong>{execution.agentType}</strong>
+                  <span>{execution.status} / {formatTime(execution.completedAt)}</span>
+                  <p>{execution.output}</p>
+                </div>
+              ))}
+              {!runtimeStatus?.workflows.some((workflow) => workflow.agentExecutions.length) && <EmptyState text="No agent execution records yet." />}
+            </div>
+          </article>
+
+          <article className="panel span-2">
+            <PanelTitle title="Operational memory graph" detail={runtimeStatus?.memory.storageMode ?? 'Neo4j/OpenSearch-ready graph'} />
+            <div className="memory-grid">
+              <div className="memory-stat">
+                <span>Nodes</span>
+                <strong>{runtimeStatus?.memory.nodes.length ?? 0}</strong>
+              </div>
+              <div className="memory-stat">
+                <span>Edges</span>
+                <strong>{runtimeStatus?.memory.edges.length ?? 0}</strong>
+              </div>
+              <div className="memory-stat">
+                <span>Causal paths</span>
+                <strong>{runtimeStatus?.memory.causalPaths.length ?? 0}</strong>
+              </div>
+            </div>
+            <div className="causal-paths">
+              {(runtimeStatus?.memory.causalPaths ?? []).slice(0, 10).map((path) => <code key={path}>{path}</code>)}
+              {!runtimeStatus?.memory.causalPaths.length && <EmptyState text="Memory graph will populate when runtime incidents are created." />}
+            </div>
           </article>
         </section>
       )}

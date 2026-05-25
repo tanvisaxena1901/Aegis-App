@@ -51,3 +51,27 @@ class GeneralChatResponse(BaseModel):
     model: str
     ollamaAvailable: bool
     generatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class RuntimeAgentTaskRequest(BaseModel):
+    workflowId: str
+    incidentId: str
+    agentType: str
+    step: str
+    service: str
+    namespace: str
+    symptom: str
+    signals: List[str] = Field(default_factory=list)
+    memory: List[str] = Field(default_factory=list)
+
+
+class RuntimeAgentTaskResponse(BaseModel):
+    workflowId: str
+    step: str
+    agentType: str
+    status: str
+    output: str
+    evidence: List[str] = Field(default_factory=list)
+    memoryWrites: List[str] = Field(default_factory=list)
+    modelAvailable: bool
+    generatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

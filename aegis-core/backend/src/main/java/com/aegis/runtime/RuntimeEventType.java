@@ -1,0 +1,12 @@
+package com.aegis.runtime;
+
+public enum RuntimeEventType {
+    INCIDENT_CREATED,
+    WORKFLOW_STARTED,
+    STEP_STARTED,
+    AGENT_TASK_DISPATCHED,
+    STEP_COMPLETED,
+    STEP_FAILED,
+    WORKFLOW_COMPLETED,
+    WORKFLOW_DEAD_LETTERED
+}

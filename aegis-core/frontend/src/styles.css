@@ -978,6 +978,13 @@ h3 {
   justify-content: flex-end;
 }
 
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .danger-action {
   background: #9f1239;
 }
@@ -1001,21 +1008,27 @@ h3 {
   padding: 14px;
 }
 
-.watcher-grid,
-.runbook-grid,
-.cluster-strip,
-.timeline-list,
-.golden-grid,
+	.watcher-grid,
+	.runbook-grid,
+	.cluster-strip,
+	.timeline-list,
+	.golden-grid,
 .diff-list,
-.drift-list,
-.permission-list,
-.pattern-list,
-.runbook-code-list,
-.replay-steps {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-}
+	.drift-list,
+	.permission-list,
+	.pattern-list,
+	.runbook-code-list,
+	.replay-steps,
+	.runtime-architecture,
+	.agent-list,
+	.workflow-list,
+	.agent-execution-list,
+	.memory-grid,
+	.causal-paths {
+	  display: grid;
+	  gap: 10px;
+	  padding: 14px;
+	}
 
 .watcher-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1030,14 +1043,21 @@ h3 {
 .permission-row,
 .timeline-row,
 .dedupe-row,
-.pattern-row,
-.golden-card,
-.diff-row,
-.drift-row,
-.runbook-code {
-  background: #0d131a;
-  border: 1px solid #202a36;
-  border-radius: 6px;
+	.pattern-row,
+	.golden-card,
+	.diff-row,
+	.drift-row,
+	.runbook-code,
+	.runtime-dispatch,
+	.runtime-stage,
+	.agent-row,
+	.workflow-card,
+	.step-chip,
+	.agent-execution,
+	.memory-stat {
+	  background: #0d131a;
+	  border: 1px solid #202a36;
+	  border-radius: 6px;
   display: grid;
   gap: 8px;
   padding: 12px;
@@ -1084,15 +1104,21 @@ h3 {
 .risk-profile strong,
 .permission-row strong,
 .timeline-row strong,
-.dedupe-row strong,
-.pattern-row strong,
-.golden-card strong,
-.diff-row strong,
-.drift-row strong,
-.runbook-code strong {
-  color: #f8fafc;
-  overflow-wrap: anywhere;
-}
+	.dedupe-row strong,
+	.pattern-row strong,
+	.golden-card strong,
+	.diff-row strong,
+	.drift-row strong,
+	.runbook-code strong,
+	.runtime-dispatch strong,
+	.agent-row strong,
+	.workflow-card strong,
+	.step-chip b,
+	.agent-execution strong,
+	.memory-stat strong {
+	  color: #f8fafc;
+	  overflow-wrap: anywhere;
+	}
 
 .watcher-card p,
 .watcher-card small,
@@ -1108,23 +1134,35 @@ h3 {
 .dedupe-row span,
 .dedupe-row p,
 .pattern-row p,
-.golden-card p,
-.diff-row p,
-.runbook-code span {
-  color: #94a3b8;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
+	.golden-card p,
+	.diff-row p,
+	.runbook-code span,
+	.runtime-dispatch span,
+	.runtime-dispatch p,
+	.agent-row span,
+	.agent-row p,
+	.workflow-card span,
+	.workflow-card p,
+	.step-chip span,
+	.agent-execution span,
+	.agent-execution p,
+	.memory-stat span {
+	  color: #94a3b8;
+	  line-height: 1.45;
+	  overflow-wrap: anywhere;
+	}
 
 .watcher-card code,
 .runbook-step code,
 .permission-row code,
-.diff-row code,
-.drift-row code,
-.runbook-code code {
-  background: #101923;
-  border: 1px solid #263241;
-  border-radius: 5px;
+	.diff-row code,
+	.drift-row code,
+	.runbook-code code,
+	.agent-row code,
+	.causal-paths code {
+	  background: #101923;
+	  border: 1px solid #263241;
+	  border-radius: 5px;
   color: #cbd5e1;
   overflow-wrap: anywhere;
   padding: 5px 7px;
@@ -1138,6 +1176,123 @@ h3 {
 .cluster-strip,
 .golden-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.runtime-architecture {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.runtime-stage {
+  min-height: 72px;
+  place-items: center;
+  text-align: center;
+}
+
+.runtime-stage span {
+  color: #dbeafe;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.agent-list,
+.memory-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.workflow-list,
+.agent-execution-list,
+.causal-paths {
+  align-content: start;
+}
+
+.workflow-card {
+  gap: 12px;
+}
+
+.workflow-head {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.workflow-head div {
+  display: grid;
+  gap: 4px;
+}
+
+.runtime-status {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 4px 7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.runtime-status.completed,
+.step-chip.done {
+  background: #0d2a22;
+  border-color: #14532d;
+  color: #86efac;
+}
+
+.runtime-status.running,
+.runtime-status.pending,
+.step-chip.running,
+.step-chip.pending {
+  background: #102030;
+  border-color: #255978;
+  color: #7dd3fc;
+}
+
+.runtime-status.retrying,
+.step-chip.failed {
+  background: #332409;
+  border-color: #7c5e10;
+  color: #fbbf24;
+}
+
+.runtime-status.failed,
+.runtime-status.dead_lettered {
+  background: #3a1216;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+.step-track {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.step-chip {
+  align-content: start;
+  min-height: 86px;
+}
+
+.retry-list {
+  background: #120f08;
+  border: 1px solid #3b2b10;
+  border-radius: 6px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.retry-list p {
+  color: #fbbf24;
+  font-size: 12px;
+  margin: 0;
+}
+
+.memory-stat {
+  min-height: 80px;
+}
+
+.memory-stat strong {
+  font-size: 28px;
 }
 
 .cluster-pill.active {
@@ -1485,7 +1640,11 @@ h3 {
   .runbook-grid,
   .limit-grid,
   .cluster-strip,
-  .golden-grid {
+  .golden-grid,
+  .runtime-architecture,
+  .agent-list,
+  .memory-grid,
+  .step-track {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -1524,11 +1683,15 @@ h3 {
   .watcher-grid,
   .runbook-grid,
   .limit-grid,
-  .cluster-strip,
-  .golden-grid,
-  .timeline-row,
-  .permission-row,
-  .pattern-row,
+    .cluster-strip,
+    .golden-grid,
+    .runtime-architecture,
+    .agent-list,
+    .memory-grid,
+    .step-track,
+    .timeline-row,
+    .permission-row,
+    .pattern-row,
   .drift-row {
     grid-template-columns: 1fr;
   }

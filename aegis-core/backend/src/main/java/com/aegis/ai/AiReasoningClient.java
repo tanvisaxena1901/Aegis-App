@@ -31,4 +31,13 @@ public class AiReasoningClient {
                 .bodyToMono(AiChatResponse.class)
                 .timeout(Duration.ofSeconds(90));
     }
+
+    public Mono<AiRuntimeTaskResponse> runtimeTask(AiRuntimeTaskRequest request) {
+        return aiWebClient.post()
+                .uri("/v1/runtime/agent-task")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(AiRuntimeTaskResponse.class)
+                .timeout(Duration.ofSeconds(90));
+    }
 }

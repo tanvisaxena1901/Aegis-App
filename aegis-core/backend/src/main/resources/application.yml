@@ -1,11 +1,32 @@
 spring:
   application:
     name: aegis-core-backend
+  data:
+    redis:
+      host: ${AEGIS_REDIS_HOST:127.0.0.1}
+      port: ${AEGIS_REDIS_PORT:6379}
 
 server:
   port: ${PORT:8080}
 
 aegis:
+  runtime:
+    state-store: ${AEGIS_RUNTIME_STATE_STORE:memory}
+    event-bus: ${AEGIS_RUNTIME_EVENT_BUS:memory}
+    memory-graph: ${AEGIS_RUNTIME_MEMORY_GRAPH:memory}
+    postgres:
+      host: ${AEGIS_POSTGRES_HOST:127.0.0.1}
+      port: ${AEGIS_POSTGRES_PORT:5432}
+      database: ${AEGIS_POSTGRES_DB:aegis_runtime}
+      username: ${AEGIS_POSTGRES_USER:aegis}
+      password: ${AEGIS_POSTGRES_PASSWORD:aegis}
+    neo4j:
+      uri: ${AEGIS_NEO4J_URI:bolt://127.0.0.1:7687}
+      username: ${AEGIS_NEO4J_USER:neo4j}
+      password: ${AEGIS_NEO4J_PASSWORD:neo4j}
+    opensearch:
+      base-url: ${AEGIS_OPENSEARCH_BASE_URL:http://127.0.0.1:9200}
+      index-prefix: ${AEGIS_OPENSEARCH_INDEX_PREFIX:aegis-runtime}
   ai-service:
     base-url: ${AEGIS_AI_SERVICE_URL:http://127.0.0.1:8090}
   platform:
