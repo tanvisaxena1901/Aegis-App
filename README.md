@@ -103,6 +103,22 @@ cd aegis-core/frontend
 npm run build
 ```
 
+Build the frontend for GitHub Pages:
+
+```bash
+cd aegis-core/frontend
+npm run build:pages
+```
+
+The GitHub Pages deployment publishes the static frontend to:
+
+```text
+https://tanvisaxena1901.github.io/Aegis-App/
+```
+
+The hosted frontend still expects a reachable Aegis backend for live `/api`
+features.
+
 Compile-check the AI service:
 
 ```bash
