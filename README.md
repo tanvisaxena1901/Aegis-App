@@ -119,6 +119,15 @@ https://tanvisaxena1901.github.io/Aegis-App/
 The hosted frontend still expects a reachable Aegis backend for live `/api`
 features.
 
+To make the GitHub Pages UI fully functional:
+
+1. Deploy backend publicly.
+2. Deploy AI service publicly or alongside backend.
+3. Set backend `AEGIS_AI_SERVICE_URL`.
+4. Add `VITE_API_BASE_URL` to the GitHub Pages frontend build.
+5. Enable CORS for the GitHub Pages origin.
+6. Redeploy GitHub Pages.
+
 Compile-check the AI service:
 
 ```bash

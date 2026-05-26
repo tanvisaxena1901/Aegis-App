@@ -20,6 +20,12 @@ import {
 } from 'lucide-react';
 import './styles.css';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+
+function apiUrl(path: string) {
+  return `${API_BASE_URL}${path}`;
+}
+
 type ClusterSnapshot = {
   context: string;
   namespaces: number;
@@ -642,7 +648,7 @@ function App() {
   async function loadSafety() {
     setSafetyState('loading');
     try {
-      const response = await fetch('/api/platform/safety');
+      const response = await fetch(apiUrl('/api/platform/safety'));
       if (!response.ok) throw new Error('safety failed');
       setSafety(await response.json());
       setSafetyState('ready');
@@ -654,7 +660,7 @@ function App() {
   async function loadWatcher() {
     setWatcherState('loading');
     try {
-      const response = await fetch('/api/kubernetes/watcher/status');
+      const response = await fetch(apiUrl('/api/kubernetes/watcher/status'));
       if (!response.ok) throw new Error('watcher failed');
       setWatcher(await response.json());
       setWatcherState('ready');
@@ -666,7 +672,7 @@ function App() {
   async function loadPlatformIntelligence() {
     setPlatformState('loading');
     try {
-      const response = await fetch(`/api/platform-intelligence/namespaces/${namespace}?clusterId=${clusterId}`);
+      const response = await fetch(apiUrl(`/api/platform-intelligence/namespaces/${namespace}?clusterId=${clusterId}`));
       if (!response.ok) throw new Error('platform intelligence failed');
       setPlatformIntelligence(await response.json());
       setPlatformState('ready');
@@ -679,7 +685,7 @@ function App() {
     if (!deploymentName) return;
     setDeploymentDiffState('loading');
     try {
-      const response = await fetch(`/api/platform-intelligence/namespaces/${namespace}/deployments/${deploymentName}/diff?clusterId=${clusterId}`);
+      const response = await fetch(apiUrl(`/api/platform-intelligence/namespaces/${namespace}/deployments/${deploymentName}/diff?clusterId=${clusterId}`));
       if (!response.ok) throw new Error('deployment diff failed');
       setDeploymentDiff(await response.json());
       setDeploymentDiffState('ready');
@@ -691,7 +697,7 @@ function App() {
   async function loadIncidentReplay() {
     setIncidentReplayState('loading');
     try {
-      const response = await fetch('/api/platform-intelligence/replay/sample');
+      const response = await fetch(apiUrl('/api/platform-intelligence/replay/sample'));
       if (!response.ok) throw new Error('replay failed');
       setIncidentReplay(await response.json());
       setIncidentReplayState('ready');
@@ -704,7 +710,7 @@ function App() {
   async function loadRuntimeStatus() {
     setRuntimeState('loading');
     try {
-      const response = await fetch('/api/runtime/status');
+      const response = await fetch(apiUrl('/api/runtime/status'));
       if (!response.ok) throw new Error('runtime status failed');
       setRuntimeStatus(await response.json());
       setRuntimeState('ready');
@@ -715,7 +721,7 @@ function App() {
 
   async function loadRuntimeAgents() {
     try {
-      const response = await fetch('/api/runtime/agents');
+      const response = await fetch(apiUrl('/api/runtime/agents'));
       if (!response.ok) throw new Error('runtime agents failed');
       setRuntimeAgents(await response.json());
     } catch {
@@ -726,7 +732,7 @@ function App() {
   async function loadSnapshot() {
     setSnapshotState('loading');
     try {
-      const response = await fetch('/api/cluster/snapshot');
+      const response = await fetch(apiUrl('/api/cluster/snapshot'));
       if (!response.ok) throw new Error('snapshot failed');
       setSnapshot(await response.json());
       setSnapshotState('ready');
@@ -739,9 +745,9 @@ function App() {
     setOperationsState('loading');
     try {
       const [podResponse, deploymentResponse, eventResponse] = await Promise.all([
-        fetch(`/api/kubernetes/namespaces/${namespace}/pods`),
-        fetch(`/api/kubernetes/namespaces/${namespace}/deployments`),
-        fetch(`/api/kubernetes/namespaces/${namespace}/events`),
+        fetch(apiUrl(`/api/kubernetes/namespaces/${namespace}/pods`)),
+        fetch(apiUrl(`/api/kubernetes/namespaces/${namespace}/deployments`)),
+        fetch(apiUrl(`/api/kubernetes/namespaces/${namespace}/events`)),
       ]);
       if (!podResponse.ok || !deploymentResponse.ok || !eventResponse.ok) {
         throw new Error('operations failed');
@@ -758,7 +764,7 @@ function App() {
   async function loadEnvironmentHealth() {
     setEnvironmentState('loading');
     try {
-      const response = await fetch('/api/environments/health');
+      const response = await fetch(apiUrl('/api/environments/health'));
       if (!response.ok) throw new Error('environment health failed');
       setEnvironmentHealth(await response.json());
       setEnvironmentState('ready');
@@ -772,7 +778,7 @@ function App() {
     setDetailState('loading');
     try {
       const response = await fetch(
-        `/api/kubernetes/namespaces/${namespace}/deployments/${deploymentName}/describe`,
+        apiUrl(`/api/kubernetes/namespaces/${namespace}/deployments/${deploymentName}/describe`),
       );
       if (!response.ok) throw new Error('describe failed');
       setDeploymentDetail(await response.json());
@@ -795,7 +801,7 @@ function App() {
     ];
     setRunbookState('loading');
     try {
-      const response = await fetch('/api/runbooks/evaluate', {
+      const response = await fetch(apiUrl('/api/runbooks/evaluate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -820,7 +826,7 @@ function App() {
     setActiveTab('logs');
     try {
       const response = await fetch(
-        `/api/kubernetes/namespaces/${namespace}/pods/${podName}/logs?tailLines=160`,
+        apiUrl(`/api/kubernetes/namespaces/${namespace}/pods/${podName}/logs?tailLines=160`),
       );
       if (!response.ok) throw new Error('logs failed');
       setLogs(await response.json());
@@ -834,7 +840,7 @@ function App() {
     setInvestigationState('loading');
     setActiveTab('ai');
     try {
-      const response = await fetch('/api/incidents/investigate', {
+      const response = await fetch(apiUrl('/api/incidents/investigate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -881,7 +887,7 @@ function App() {
       `namespace_restarts=${restartTotal}`,
     ].filter(Boolean);
     try {
-      const response = await fetch('/api/runtime/incidents', {
+      const response = await fetch(apiUrl('/api/runtime/incidents'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -999,7 +1005,7 @@ function App() {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 90000);
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(apiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -1038,7 +1044,7 @@ function App() {
     setTerminalError('');
     setTerminalCommand(trimmed);
     try {
-      const response = await fetch('/api/terminal/run', {
+      const response = await fetch(apiUrl('/api/terminal/run'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: trimmed }),
@@ -1098,7 +1104,7 @@ function App() {
 
   async function loadRemediationPlan(intent: RemediationIntent) {
     try {
-      const response = await fetch('/api/remediation/plan', {
+      const response = await fetch(apiUrl('/api/remediation/plan'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(remediationPayload(intent, false)),
@@ -1115,7 +1121,7 @@ function App() {
     setRemediationState('loading');
     setRemediationError('');
     try {
-      const response = await fetch('/api/remediation/execute', {
+      const response = await fetch(apiUrl('/api/remediation/execute'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(remediationPayload(remediationIntent, true)),
