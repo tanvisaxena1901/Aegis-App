@@ -7,6 +7,7 @@ This folder deploys Aegis Core in-cluster with Kustomize.
 - `namespace.yaml`: creates the `aegis` namespace.
 - `aegis-readonly-rbac.yaml`: creates the `aegis-core` service account and read-only cluster permissions.
 - `config.yaml`: shared runtime configuration.
+- `opensearch.yaml`: single-node OpenSearch deployment for runtime memory search.
 - `ai-service.yaml`: Python FastAPI/LangGraph deployment and service.
 - `backend.yaml`: Spring Boot backend deployment and service, wired to the `aegis-core` service account.
 - `frontend.yaml`: React/nginx frontend deployment and service.

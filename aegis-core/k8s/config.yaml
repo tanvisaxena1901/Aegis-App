@@ -7,6 +7,9 @@ metadata:
     app.kubernetes.io/name: aegis
 data:
   AEGIS_AI_SERVICE_URL: http://aegis-ai-service:8090
+  AEGIS_RUNTIME_MEMORY_GRAPH: opensearch
+  AEGIS_OPENSEARCH_BASE_URL: http://opensearch:9200
+  AEGIS_OPENSEARCH_INDEX_PREFIX: aegis-runtime
   AI_PROVIDER: auto
   OPENAI_MODEL: gpt-4.1-mini
   OLLAMA_BASE_URL: http://ollama:11434

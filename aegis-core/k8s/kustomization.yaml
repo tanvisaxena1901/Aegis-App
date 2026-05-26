@@ -5,6 +5,7 @@ resources:
   - namespace.yaml
   - config.yaml
   - aegis-readonly-rbac.yaml
+  - opensearch.yaml
   - ai-service.yaml
   - backend.yaml
   - frontend.yaml

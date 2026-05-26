@@ -39,6 +39,21 @@ spec:
                 configMapKeyRef:
                   name: aegis-config
                   key: AEGIS_AI_SERVICE_URL
+            - name: AEGIS_RUNTIME_MEMORY_GRAPH
+              valueFrom:
+                configMapKeyRef:
+                  name: aegis-config
+                  key: AEGIS_RUNTIME_MEMORY_GRAPH
+            - name: AEGIS_OPENSEARCH_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: aegis-config
+                  key: AEGIS_OPENSEARCH_BASE_URL
+            - name: AEGIS_OPENSEARCH_INDEX_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: aegis-config
+                  key: AEGIS_OPENSEARCH_INDEX_PREFIX
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
