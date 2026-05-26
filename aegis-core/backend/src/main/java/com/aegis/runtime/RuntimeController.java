@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @RestController
 @RequestMapping("/api/runtime")
@@ -20,8 +21,8 @@ public class RuntimeController {
     private final AgentRegistry agentRegistry;
 
     @GetMapping("/status")
-    public RuntimeStatusResponse status() {
-        return workflowRuntimeService.status();
+    public Mono<RuntimeStatusResponse> status() {
+        return Mono.fromCallable(workflowRuntimeService::status).subscribeOn(Schedulers.boundedElastic());
     }
 
     @GetMapping("/agents")

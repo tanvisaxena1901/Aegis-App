@@ -9,13 +9,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.scheduler.Schedulers;
 
 @Service
 @ConditionalOnProperty(name = "aegis.runtime.memory-graph", havingValue = "opensearch")
 public class OpenSearchOperationalMemoryGraph implements OperationalMemoryGraphPort {
+
+    private static final Logger log = LoggerFactory.getLogger(OpenSearchOperationalMemoryGraph.class);
 
     private static final List<String> SEARCH_FIELDS = List.of(
             "label^3",
@@ -148,19 +153,22 @@ public class OpenSearchOperationalMemoryGraph implements OperationalMemoryGraphP
 
     @Override
     public OperationalMemoryGraph snapshot() {
-        List<JsonNode> nodeSources = search(Map.of(
-                "size", 60,
-                "query", Map.of("match", Map.of("docKind", "node")),
-                "sort", List.of(Map.of("observedAtEpochMs", Map.of("order", "desc")))
-        ));
-        List<JsonNode> edgeSources = search(Map.of(
-                "size", 80,
-                "query", Map.of("match", Map.of("docKind", "edge")),
+        List<JsonNode> sources = search(Map.of(
+                "size", 140,
+                "query", Map.of("exists", Map.of("field", "id")),
                 "sort", List.of(Map.of("observedAtEpochMs", Map.of("order", "desc")))
         ));
 
-        List<MemoryNode> nodes = nodeSources.stream().map(this::toNode).toList();
-        List<MemoryEdge> edges = edgeSources.stream().map(this::toEdge).toList();
+        List<MemoryNode> nodes = sources.stream()
+                .filter(this::isNodeDocument)
+                .limit(60)
+                .map(this::toNode)
+                .toList();
+        List<MemoryEdge> edges = sources.stream()
+                .filter(this::isEdgeDocument)
+                .limit(80)
+                .map(this::toEdge)
+                .toList();
         return new OperationalMemoryGraph(
                 nodes,
                 edges,
@@ -200,6 +208,7 @@ public class OpenSearchOperationalMemoryGraph implements OperationalMemoryGraphP
                     .bodyValue(document)
                     .retrieve()
                     .bodyToMono(String.class)
+                    .subscribeOn(Schedulers.boundedElastic())
                     .block(Duration.ofSeconds(3));
         } catch (Exception ignored) {
             // OpenSearch is best-effort so runtime workflows can continue during search outages.
@@ -213,6 +222,7 @@ public class OpenSearchOperationalMemoryGraph implements OperationalMemoryGraphP
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(String.class)
+                    .subscribeOn(Schedulers.boundedElastic())
                     .block(Duration.ofSeconds(3));
             if (response == null || response.isBlank()) {
                 return List.of();
@@ -227,6 +237,7 @@ public class OpenSearchOperationalMemoryGraph implements OperationalMemoryGraphP
             }
             return results;
         } catch (Exception ignored) {
+            log.warn("OpenSearch search failed for index {}", indexName, ignored);
             return List.of();
         }
     }
@@ -239,6 +250,16 @@ public class OpenSearchOperationalMemoryGraph implements OperationalMemoryGraphP
                 nodeProperties(source),
                 Instant.ofEpochMilli(Math.max(0L, source.path("observedAtEpochMs").asLong(0L)))
         );
+    }
+
+    private boolean isNodeDocument(JsonNode source) {
+        return !text(source, "type").isBlank() && !text(source, "label").isBlank();
+    }
+
+    private boolean isEdgeDocument(JsonNode source) {
+        return !text(source, "from").isBlank()
+                && !text(source, "to").isBlank()
+                && !text(source, "relationship").isBlank();
     }
 
     private MemoryEdge toEdge(JsonNode source) {
