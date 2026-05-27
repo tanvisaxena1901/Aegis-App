@@ -37,6 +37,11 @@ function chatFailureMessage(error: unknown) {
   if (error instanceof DOMException && error.name === 'AbortError') {
     return 'The chat request timed out before the backend answered. The dashboard is still usable; check that the backend and AI service are running, then retry.';
   }
+  if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
+    return API_BASE_URL
+      ? `Cannot reach Aegis backend at ${API_BASE_URL}. Make sure the backend is running, reachable from this browser, uses HTTPS for GitHub Pages, and allows this origin in CORS.`
+      : 'Cannot reach Aegis backend because no API base URL is configured. For local dev, start the backend on port 8080. For GitHub Pages, set VITE_API_BASE_URL to a public HTTPS backend URL and redeploy.';
+  }
   if (error instanceof Error && error.message) {
     return error.message;
   }
