@@ -1,15 +1,56 @@
 # Aegis
 
-Aegis is an AI-native Kubernetes investigation and remediation platform. It combines a Spring Boot backend, a FastAPI/LangGraph reasoning service, and a React dashboard to help operators inspect cluster health, triage incidents, explain failures, and plan remediation steps.
+Aegis is an AI-native Kubernetes operations platform. It combines a Spring Boot backend, a Python LangGraph reasoning service, and a React dashboard to help operators inspect cluster health, explain failures, reason over operational memory, and prepare approval-gated remediation.
 
-## What It Does
+## What It Is
 
-- Watches Kubernetes resources and summarizes environment health.
-- Surfaces deployments, pods, events, logs, and rollout status through backend APIs.
-- Uses an isolated AI service for root-cause analysis and chat-based operational guidance.
-- Supports OpenAI-backed reasoning or local Ollama fallback.
-- Provides a React dashboard for incident investigation, remediation workflows, terminal actions, and cluster visibility.
-- Includes Docker and Kubernetes manifests for local and in-cluster deployment.
+Aegis is not a generic chatbot. It is a workflow-driven Kubernetes investigation system with three core layers:
+
+- A Java platform backend that owns cluster access, incident workflow state, remediation policy, and telemetry aggregation.
+- A Python LangGraph AI service that reasons over incidents, logs, deployment signals, and operational memory.
+- A React dashboard that presents cluster health, RCA results, remediation plans, and read-only kubectl access.
+
+The memory layer can run on an in-memory graph, Neo4j, or OpenSearch-backed operational memory search depending on configuration.
+
+## How It Works
+
+1. The backend watches Kubernetes signals, reads deployments, pods, events, and runtime status, and creates a workflow when an incident is created.
+2. The runtime sends structured evidence to the AI service in steps, including logs, metrics, deployment context, and memory graph matches.
+3. The AI service produces an analysis and can write new memory records for future incidents.
+4. The backend exposes the result to the dashboard, where operators can review context, inspect runbooks, and choose approved remediation actions.
+5. Remediation is approval-gated and executed through explicit backend policy, not autonomous AI action.
+
+## Architecture
+
+```text
+Kubernetes Cluster
+        |
+Java Spring Boot Backend
+ |-- Kubernetes signal collection
+ |-- Incident workflow engine
+ |-- Runtime memory graph
+ |-- Remediation policy and execution
+ |-- Platform telemetry APIs
+        |
+Python FastAPI + LangGraph AI Service
+ |-- Deterministic reasoning graph
+ |-- Operational memory retrieval
+ |-- OpenAI or Ollama model access
+        |
+React Dashboard
+ |-- Cluster overview
+ |-- Incident investigation
+ |-- Remediation planning
+ |-- Live kubectl terminal
+```
+
+## Benefits
+
+- Reduces incident triage time by combining logs, rollout state, events, and prior memory in one workflow.
+- Keeps remediation controlled by explicit approval and backend policy.
+- Gives a clear operator view of whether the cluster is healthy, serving traffic, or stuck.
+- Reuses prior incidents through operational memory instead of starting from zero every time.
+- Works locally with OpenSearch or Neo4j and can be deployed in Kubernetes.
 
 ## Repository Layout
 
@@ -21,7 +62,6 @@ aegis-core/
   infra/       Local infrastructure notes and compose services
   k8s/         Kubernetes manifests and Kustomize deployment
   docs/        Architecture notes
-  scripts/     Local developer scripts
 ```
 
 ## Prerequisites
@@ -29,9 +69,29 @@ aegis-core/
 - Java 21
 - Node.js and npm
 - Python 3.11+
-- Docker, optional for image builds
+- Docker, optional for image builds and local infrastructure
 - kubectl and Kind, optional for local Kubernetes testing
 - OpenAI API key or Ollama for AI reasoning
+
+## Install
+
+Clone the repo and install the frontend dependencies:
+
+```bash
+git clone <repo-url>
+cd Aegis
+cd aegis-core/frontend
+npm install
+```
+
+Set up the Python service:
+
+```bash
+cd ../ai-service
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
 ## Run Locally
 
@@ -45,10 +105,7 @@ Start the AI service:
 
 ```bash
 cd aegis-core/ai-service
-python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env.local
 uvicorn app.main:app --reload --port 8090
 ```
 
@@ -56,7 +113,6 @@ Start the frontend:
 
 ```bash
 cd aegis-core/frontend
-npm install
 npm run dev
 ```
 
@@ -66,9 +122,9 @@ Default local endpoints:
 - Backend health: `http://localhost:8080/actuator/health`
 - AI service health: `http://localhost:8090/health`
 
-## AI Configuration
+## Configure AI
 
-The AI service reads environment variables from the shell or from `aegis-core/ai-service/.env.local` when using `aegis-core/scripts/dev-ai-service.sh`.
+The AI service reads environment variables from the shell or from `aegis-core/ai-service/.env.local` when using the developer script.
 
 For Ollama:
 
@@ -87,6 +143,19 @@ OPENAI_MODEL=gpt-4.1-mini
 ```
 
 If `AI_PROVIDER=auto`, Aegis uses OpenAI when `OPENAI_API_KEY` is set and falls back to Ollama otherwise.
+
+## Use It
+
+The dashboard flow is:
+
+1. Open the frontend.
+2. Review workload readiness, running pods, warning events, namespace risk, and traffic status.
+3. Use the overview, workloads, events, and AI tabs to inspect the cluster.
+4. Select a deployment or pod to inspect rollout detail.
+5. Run RCA from the AI tab or launch a remediation candidate from the suggested actions.
+6. Confirm any remediation action explicitly before execution.
+
+There is also a read-only kubectl terminal in the dashboard for quick cluster checks.
 
 ## Useful Commands
 
@@ -116,8 +185,7 @@ The GitHub Pages deployment publishes the static frontend to:
 https://tanvisaxena1901.github.io/Aegis-App/
 ```
 
-The hosted frontend still expects a reachable Aegis backend for live `/api`
-features.
+The hosted frontend still expects a reachable Aegis backend for live `/api` features.
 
 To make the GitHub Pages UI fully functional:
 
