@@ -26,6 +26,23 @@ function apiUrl(path: string) {
   return `${API_BASE_URL}${path}`;
 }
 
+function isGitHubPagesWithoutApiBase() {
+  return !API_BASE_URL && window.location.hostname.endsWith('github.io');
+}
+
+function chatFailureMessage(error: unknown) {
+  if (isGitHubPagesWithoutApiBase()) {
+    return 'Aegis backend API is not configured for GitHub Pages. Set VITE_API_BASE_URL to the public backend URL, allow this Pages origin in backend CORS, then redeploy Pages.';
+  }
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return 'The chat request timed out before the backend answered. The dashboard is still usable; check that the backend and AI service are running, then retry.';
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return 'Aegis backend API is unavailable. Check VITE_API_BASE_URL, backend reachability, and CORS.';
+}
+
 type ClusterSnapshot = {
   context: string;
   namespaces: number;
@@ -558,6 +575,7 @@ function App() {
   const [chatQuestion, setChatQuestion] = useState('Which environment has issues and what pods are failing?');
   const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
   const [chatState, setChatState] = useState<LoadState>('idle');
+  const [chatError, setChatError] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [query, setQuery] = useState('');
   const [showWarningsOnly, setShowWarningsOnly] = useState(false);
@@ -918,6 +936,7 @@ function App() {
     if (!message) return;
     const includeLogs = wantsLogs(message);
     setChatState('loading');
+    setChatError('');
     setChatQuestion('');
     setChatHistory((history) => [...history, { role: 'user', content: message }]);
     try {
@@ -937,16 +956,18 @@ function App() {
         },
       ]);
       setChatState('ready');
-    } catch {
+    } catch (error) {
+      const failureMessage = chatFailureMessage(error);
       setChatQuestion(message);
       setChatHistory((history) => [
         ...history,
         {
           role: 'assistant',
-          content: 'The LLM request timed out or the local model stopped responding. The dashboard is still usable; retry once, or restart Ollama if this repeats.',
+          content: failureMessage,
           severity: 'LOW',
         },
       ]);
+      setChatError(failureMessage);
       setChatState('error');
     }
   }
@@ -960,6 +981,7 @@ function App() {
     if (!trimmed) return;
     const includeLogs = wantsLogs(trimmed);
     setChatState('loading');
+    setChatError('');
     setChatQuestion('');
     setChatHistory((history) => [...history, { role: 'user', content: trimmed }]);
     try {
@@ -979,16 +1001,18 @@ function App() {
         },
       ]);
       setChatState('ready');
-    } catch {
+    } catch (error) {
+      const failureMessage = chatFailureMessage(error);
       setChatQuestion(trimmed);
       setChatHistory((history) => [
         ...history,
         {
           role: 'assistant',
-          content: 'The LLM request timed out or the local model stopped responding. The dashboard is still usable; retry once, or restart Ollama if this repeats.',
+          content: failureMessage,
           severity: 'LOW',
         },
       ]);
+      setChatError(failureMessage);
       setChatState('error');
     }
   }
@@ -1002,6 +1026,9 @@ function App() {
     includeLogs: boolean;
     history: { role: ChatTurn['role']; content: string }[];
   }) {
+    if (isGitHubPagesWithoutApiBase()) {
+      throw new Error('Aegis backend API is not configured for GitHub Pages.');
+    }
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 90000);
     try {
@@ -1018,7 +1045,10 @@ function App() {
           history,
         }),
       });
-      if (!response.ok) throw new Error('chat failed');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Aegis chat API request failed.' }));
+        throw new Error(error.message || 'Aegis chat API request failed.');
+      }
       return await response.json() as ChatResponse;
     } finally {
       window.clearTimeout(timeout);
@@ -1286,7 +1316,7 @@ function App() {
                 {chatState === 'loading' ? 'Asking' : 'Ask'}
               </button>
             </div>
-            {chatState === 'error' && <p className="inline-error">Aegis chat is unavailable.</p>}
+            {chatState === 'error' && <p className="inline-error">{chatError || 'Aegis chat is unavailable.'}</p>}
           </div>
         </article>
 

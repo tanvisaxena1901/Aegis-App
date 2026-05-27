@@ -25,7 +25,7 @@ public class AppConfig {
 
     @Bean
     CorsWebFilter corsWebFilter(
-            @Value("${aegis.cors.allowed-origins:http://localhost:5173,https://tanvisaxena1901.github.io}") String allowedOrigins
+            @Value("${aegis.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,https://tanvisaxena1901.github.io}") String allowedOrigins
     ) {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
