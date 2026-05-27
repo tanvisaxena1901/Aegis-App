@@ -24,6 +24,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 @ConditionalOnProperty(name = "aegis.runtime.memory-graph", havingValue = "neo4j")
 public class Neo4jOpenSearchOperationalMemoryGraph implements OperationalMemoryGraphPort {
 
+    private static final Duration OPENSEARCH_TIMEOUT = Duration.ofSeconds(15);
+
     private static final List<String> SEARCH_FIELDS = List.of(
             "label^3",
             "type^2",
@@ -314,7 +316,7 @@ public class Neo4jOpenSearchOperationalMemoryGraph implements OperationalMemoryG
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block(Duration.ofSeconds(3));
+                    .block(OPENSEARCH_TIMEOUT);
             if (response == null || response.isBlank()) {
                 return List.of();
             }
@@ -340,7 +342,7 @@ public class Neo4jOpenSearchOperationalMemoryGraph implements OperationalMemoryG
                     .bodyValue(document)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block(Duration.ofSeconds(3));
+                    .block(OPENSEARCH_TIMEOUT);
         } catch (Exception ignored) {
             // Search remains optional; Neo4j is the source of structure.
         }

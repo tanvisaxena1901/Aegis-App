@@ -119,38 +119,24 @@ public class RemediationService {
     }
 
     private RemediationResponse restartDeployment(RemediationRequest request) throws Exception {
-        ApiClient client = clientProvider.defaultClient();
-        AppsV1Api appsApi = new AppsV1Api(client);
-        String patch = """
-                {
-                  "spec": {
-                    "template": {
-                      "metadata": {
-                        "annotations": {
-                          "kubectl.kubernetes.io/restartedAt": "%s",
-                          "aegis.io/remediation-reason": "%s"
-                        }
-                      }
-                    }
-                  }
-                }
-                """.formatted(Instant.now(), jsonEscape(request.reason()));
-        PatchUtils.patch(
-                V1Deployment.class,
-                () -> appsApi.patchNamespacedDeployment(
-                                trim(request.targetName()),
-                                trim(request.namespace()),
-                                new V1Patch(patch)
-                        )
-                        .fieldManager("aegis-remediation")
-                        .buildCall(null),
-                V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH,
-                client
+        String output = runKubectl(
+                List.of(
+                        "kubectl",
+                        "rollout",
+                        "restart",
+                        "deployment/" + trim(request.targetName()),
+                        "-n",
+                        trim(request.namespace())
+                ),
+                "Rollout restart timed out.",
+                "Rollout restart failed: "
         );
         return response(
                 request,
                 "APPROVED_AND_EXECUTED",
-                "Requested rollout restart for deployment " + trim(request.namespace()) + "/" + trim(request.targetName())
+                output.isBlank()
+                        ? "Requested rollout restart for deployment " + trim(request.namespace()) + "/" + trim(request.targetName())
+                        : output
         );
     }
 
@@ -180,24 +166,18 @@ public class RemediationService {
     }
 
     private RemediationResponse rollbackDeployment(RemediationRequest request) throws Exception {
-        List<String> command = List.of(
-                "kubectl",
-                "rollout",
-                "undo",
-                "deployment/" + trim(request.targetName()),
-                "-n",
-                trim(request.namespace())
+        String output = runKubectl(
+                List.of(
+                        "kubectl",
+                        "rollout",
+                        "undo",
+                        "deployment/" + trim(request.targetName()),
+                        "-n",
+                        trim(request.namespace())
+                ),
+                "Rollback command timed out.",
+                "Rollback failed: "
         );
-        Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
-        boolean finished = process.waitFor(Duration.ofSeconds(30).toMillis(), TimeUnit.MILLISECONDS);
-        if (!finished) {
-            process.destroyForcibly();
-            throw new IllegalStateException("Rollback command timed out.");
-        }
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
-        if (process.exitValue() != 0) {
-            throw new IllegalStateException("Rollback failed: " + output);
-        }
         return response(
                 request,
                 "APPROVED_AND_EXECUTED",
@@ -208,32 +188,25 @@ public class RemediationService {
     }
 
     private RemediationResponse scaleDeployment(RemediationRequest request) throws Exception {
-        ApiClient client = clientProvider.defaultClient();
-        AppsV1Api appsApi = new AppsV1Api(client);
-        String patch = """
-                {
-                  "spec": {
-                    "replicas": %d
-                  }
-                }
-                """.formatted(request.replicas());
-        PatchUtils.patch(
-                V1Deployment.class,
-                () -> appsApi.patchNamespacedDeployment(
-                                trim(request.targetName()),
-                                trim(request.namespace()),
-                                new V1Patch(patch)
-                        )
-                        .fieldManager("aegis-remediation")
-                        .buildCall(null),
-                V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH,
-                client
+        String output = runKubectl(
+                List.of(
+                        "kubectl",
+                        "scale",
+                        "deployment/" + trim(request.targetName()),
+                        "--replicas=" + request.replicas(),
+                        "-n",
+                        trim(request.namespace())
+                ),
+                "Scale command timed out.",
+                "Scale failed: "
         );
         return response(
                 request,
                 "APPROVED_AND_EXECUTED",
-                "Scaled deployment " + trim(request.namespace()) + "/" + trim(request.targetName())
+                output.isBlank()
+                        ? "Scaled deployment " + trim(request.namespace()) + "/" + trim(request.targetName())
                         + " to " + request.replicas() + " replicas."
+                        : output
         );
     }
 
@@ -448,6 +421,20 @@ public class RemediationService {
             flags.add("memory=" + trim(request.memoryLimit()));
         }
         return flags.isEmpty() ? "" : " --limits=" + String.join(",", flags);
+    }
+
+    private String runKubectl(List<String> command, String timeoutMessage, String failurePrefix) throws Exception {
+        Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+        boolean finished = process.waitFor(Duration.ofSeconds(30).toMillis(), TimeUnit.MILLISECONDS);
+        if (!finished) {
+            process.destroyForcibly();
+            throw new IllegalStateException(timeoutMessage);
+        }
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
+        if (process.exitValue() != 0) {
+            throw new IllegalStateException(failurePrefix + output);
+        }
+        return output;
     }
 
     private String jsonEscape(String value) {

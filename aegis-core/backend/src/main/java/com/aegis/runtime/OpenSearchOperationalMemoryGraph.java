@@ -21,6 +21,7 @@ import reactor.core.scheduler.Schedulers;
 public class OpenSearchOperationalMemoryGraph implements OperationalMemoryGraphPort {
 
     private static final Logger log = LoggerFactory.getLogger(OpenSearchOperationalMemoryGraph.class);
+    private static final Duration OPENSEARCH_TIMEOUT = Duration.ofSeconds(15);
 
     private static final List<String> SEARCH_FIELDS = List.of(
             "label^3",
@@ -209,7 +210,7 @@ public class OpenSearchOperationalMemoryGraph implements OperationalMemoryGraphP
                     .retrieve()
                     .bodyToMono(String.class)
                     .subscribeOn(Schedulers.boundedElastic())
-                    .block(Duration.ofSeconds(3));
+                    .block(OPENSEARCH_TIMEOUT);
         } catch (Exception ignored) {
             // OpenSearch is best-effort so runtime workflows can continue during search outages.
         }
@@ -223,7 +224,7 @@ public class OpenSearchOperationalMemoryGraph implements OperationalMemoryGraphP
                     .retrieve()
                     .bodyToMono(String.class)
                     .subscribeOn(Schedulers.boundedElastic())
-                    .block(Duration.ofSeconds(3));
+                    .block(OPENSEARCH_TIMEOUT);
             if (response == null || response.isBlank()) {
                 return List.of();
             }

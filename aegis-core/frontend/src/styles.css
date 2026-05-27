@@ -884,6 +884,12 @@ h3 {
   padding: 10px;
 }
 
+.remediation-summary code {
+  color: #cbd5e1;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .remediation-box span {
   color: #fbbf24;
   font-size: 11px;
