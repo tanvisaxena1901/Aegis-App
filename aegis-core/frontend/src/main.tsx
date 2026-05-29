@@ -555,6 +555,57 @@ const quickQuestions = [
   'What should I check next?',
 ];
 
+class AppErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; message: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+
+  static getDerivedStateFromError(error: unknown) {
+    return {
+      hasError: true,
+      message: error instanceof Error ? error.message : 'Unknown UI error',
+    };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('Aegis dashboard crashed', error);
+  }
+
+  render() {
+    if (!this.state.hasError) {
+      return this.props.children;
+    }
+
+    return (
+      <main className="app-shell">
+        <section className="hero crash-shell">
+          <div className="hero-copy">
+            <p className="eyebrow">Dashboard recovery</p>
+            <h1>Aegis UI hit an unexpected error</h1>
+            <p className="subtitle">
+              The frontend caught a runtime exception instead of blanking the page. This usually means an API
+              response shape or a render path still needs hardening.
+            </p>
+            <div className="hero-meta">
+              <span className="hero-chip">Error: {this.state.message}</span>
+            </div>
+          </div>
+          <div className="hero-actions">
+            <button className="primary-action" onClick={() => window.location.reload()}>
+              <RefreshCw size={17} />
+              Reload
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+}
+
 function App() {
   const [snapshot, setSnapshot] = useState<ClusterSnapshot | null>(null);
   const [snapshotState, setSnapshotState] = useState<LoadState>('idle');
@@ -576,6 +627,7 @@ function App() {
   const [logsState, setLogsState] = useState<LoadState>('idle');
   const [investigation, setInvestigation] = useState<InvestigationResponse | null>(null);
   const [investigationState, setInvestigationState] = useState<LoadState>('idle');
+  const [investigationError, setInvestigationError] = useState('');
   const [chatQuestion, setChatQuestion] = useState('Which environment has issues and what pods are failing?');
   const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
   const [chatState, setChatState] = useState<LoadState>('idle');
@@ -861,6 +913,7 @@ function App() {
 
   async function runInvestigation() {
     setInvestigationState('loading');
+    setInvestigationError('');
     setActiveTab('ai');
     try {
       const response = await fetch(apiUrl('/api/incidents/investigate'), {
@@ -882,10 +935,14 @@ function App() {
           ],
         }),
       });
-      if (!response.ok) throw new Error('rca failed');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Investigation failed' }));
+        throw new Error(error.message || 'Investigation failed');
+      }
       setInvestigation(await response.json());
       setInvestigationState('ready');
-    } catch {
+    } catch (error) {
+      setInvestigationError(error instanceof Error ? error.message : 'Investigation failed');
       setInvestigationState('error');
     }
   }
@@ -1216,12 +1273,19 @@ function App() {
   return (
     <main className="app-shell">
       <section className="hero">
-        <div>
+        <div className="hero-copy">
           <p className="eyebrow">Namespace / {namespace}</p>
-          <h1>Kubernetes Operations Dashboard</h1>
+          <h1>Aegis Control Center</h1>
           <p className="subtitle">
-            Workloads, rollout state, events, logs, and RCA context for the active cluster.
+            Clean operational visibility for workloads, rollout state, events, logs, and AI-assisted triage.
           </p>
+          <div className="hero-meta" aria-label="Cluster status">
+            <span className="hero-chip">{clusterId}</span>
+            <span className="hero-chip">Safety: {safety?.mode.replace(/_/g, ' ') ?? 'Loading'}</span>
+            <span className="hero-chip">
+              Watcher: {watcher?.enabled ? `${watcher.resources.length} streams live` : 'Unavailable'}
+            </span>
+          </div>
         </div>
         <div className="hero-actions">
           <button className="primary-action" onClick={() => void refreshAll()} disabled={refreshing}>
@@ -1624,6 +1688,16 @@ function App() {
                 <SignalList title="Evidence" items={investigation.evidence} />
                 <SignalList title="Recommended actions" items={investigation.recommendedActions} />
               </div>
+            ) : investigationState === 'error' ? (
+              <div className="ai-result-single">
+                <div className="status-banner error-banner">
+                  <strong>Analyze completed with an error</strong>
+                  <div className="status-banner-list">
+                    <p>{investigationError || 'The investigation endpoint failed.'}</p>
+                    <p>Refresh can still work partially, but Kubernetes-backed APIs are currently degraded.</p>
+                  </div>
+                </div>
+              </div>
             ) : (
               <EmptyState text="Run RCA to combine rollout status, events, logs, and warnings into a triage summary." />
             )}
@@ -1984,4 +2058,8 @@ function formatTime(value?: string | null) {
   }).format(new Date(value));
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>,
+);
